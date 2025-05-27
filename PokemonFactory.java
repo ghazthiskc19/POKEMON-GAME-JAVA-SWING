@@ -199,18 +199,41 @@ public class PokemonFactory {
                                 "./Assets/Sound/SFX/heal.wav"));
 
                 allPokemons.add(pichu);
-                allPokemons.add(pikachu);
-                allPokemons.add(raichu);
-                allPokemons.add(squirtle);
-                allPokemons.add(wartortle);
-                allPokemons.add(blastoise);
-                allPokemons.add(charmander);
-                allPokemons.add(charmeleon);
-                allPokemons.add(charizard);
-                allPokemons.add(ralts);
-                allPokemons.add(kirlia);
-                allPokemons.add(gardevoir);
+        allPokemons.add(pikachu);
+        allPokemons.add(raichu);
+        allPokemons.add(squirtle);
+        allPokemons.add(wartortle);
+        allPokemons.add(blastoise);
+        allPokemons.add(charmander);
+        allPokemons.add(charmeleon);
+        allPokemons.add(charizard);
+        allPokemons.add(ralts);
+        allPokemons.add(kirlia);
+        allPokemons.add(gardevoir);
 
-                return allPokemons;
+        return allPokemons;
+    }
+
+    // Pindahkan method ini ke luar createAllPokemons
+    public static Pokemon getNextEvolution(Pokemon current) {
+        List<Pokemon> all = createAllPokemons();
+        for (int i = 0; i < all.size() - 1; i++) {
+            if (all.get(i).getName().equals(current.getName())) {
+                String curr = current.getName().toLowerCase();
+                String next = all.get(i + 1).getName().toLowerCase();
+                if ((curr.contains("pichu") && next.contains("pikachu")) ||
+                    (curr.contains("pikachu") && next.contains("raichu")) ||
+                    (curr.contains("squirtle") && next.contains("wartortle")) ||
+                    (curr.contains("wartortle") && next.contains("blastoise")) ||
+                    (curr.contains("charmander") && next.contains("charmeleon")) ||
+                    (curr.contains("charmeleon") && next.contains("charizard")) ||
+                    (curr.contains("ralts") && next.contains("kirlia")) ||
+                    (curr.contains("kirlia") && next.contains("gardevoir"))) {
+                    return all.get(i + 1);
+                }
+            }
         }
-}
+        return null;
+    }
+                
+        }

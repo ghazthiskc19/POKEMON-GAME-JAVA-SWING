@@ -38,7 +38,7 @@ class BackgroundPanel extends JPanel {
 
 class StartMenuUI extends JFrame {
     MusicPlayer musicPlayer;
-    List<Pokemon> allPokemons;
+    List<Pokemon> allPokemons = PokemonFactory.createAllPokemons();
     ArrayList<Pokemon> availablePokemon = new ArrayList<>();
     Pokemon playerPokemon;
     Pokemon enemyPokemon;
@@ -55,6 +55,9 @@ class StartMenuUI extends JFrame {
     JPanel arenaPanel;
     JPanel pokemonSelectionPanel;
     JPanel pokemonShopPanel;
+    JPanel nameInputPanel;
+    ArrayList<Pokemon> ownedPokemons = new ArrayList<>();
+
 
     // Global Variable
     Color textColor = new Color(21, 22, 21);
@@ -74,6 +77,8 @@ class StartMenuUI extends JFrame {
         setMainMenuPanel();
         setPokemonSelectionPanel();
         setShopPanel();
+        setNameInputPanel();
+        wrapperPanel.add(nameInputPanel, "NameInput");
         add(wrapperPanel);
         setResizable(false);
         fadeEffectPanel = new FadeEffectPanel();
@@ -140,13 +145,13 @@ class StartMenuUI extends JFrame {
 
     private void setStartMenuPanel() {
         startMenuPanel.setLayout(new BoxLayout(startMenuPanel, BoxLayout.Y_AXIS));
-        // Bikin tombol-tombol
+
         JButton startButton = new JButton("Start Game");
         JButton settingButton = new JButton("Settings");
         JButton exitButton = new JButton("Exit");
-        JButton[] buttons = { startButton, settingButton, exitButton };
-        editButtonAll(buttons);
-        editButtonStart(buttons);
+
+        editButtonAll(new JButton[]{startButton, settingButton, exitButton});
+        editButtonStart(new JButton[]{startButton, settingButton, exitButton});
 
         JPanel buttonGroup = new JPanel();
         buttonGroup.setLayout(new BoxLayout(buttonGroup, BoxLayout.Y_AXIS));
@@ -162,19 +167,18 @@ class StartMenuUI extends JFrame {
         buttonGroup.add(Box.createRigidArea(new Dimension(0, 10)));
         buttonGroup.add(exitButton);
 
-        // Set ActionListener
         startButton.addActionListener(e -> {
             fadeEffectPanel.setFadeColor(Color.black);
             fadeEffectPanel.setCurrentAlpha(0.0f);
             fadeEffectPanel.setVisible(true);
             Runnable H_afterFadeOut = () -> {
-                cardLayout.show(wrapperPanel, "MainMenu");
-                musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
-
-                Runnable H_afterFadeIn = () -> {
-
-                };
-                fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
+                if (PlayerData.hasPlayerName()) {
+                    cardLayout.show(wrapperPanel, "MainMenu");
+                    musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
+                } else {
+                    cardLayout.show(wrapperPanel, "NameInput");
+                }
+                fadeEffectPanel.startFade(0.0f, 700, () -> {});
             };
             fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
         });
@@ -184,35 +188,14 @@ class StartMenuUI extends JFrame {
             fadeEffectPanel.setCurrentAlpha(0.0f);
             fadeEffectPanel.setVisible(true);
             Runnable H_afterFadeOut = () -> {
-                if (musicPlayer != null) {
-                    musicPlayer.stopMusic();
-                    cardLayout.show(wrapperPanel, "SettingMenu");
-                    System.exit(0);
-                    Runnable H_afterFadeIn = () -> {
-                    };
-                    fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
-                }
-                ;
-            };
-            fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
-        });
-        exitButton.addActionListener(e -> {
-            fadeEffectPanel.setFadeColor(Color.black);
-            fadeEffectPanel.setCurrentAlpha(0.0f);
-            fadeEffectPanel.setVisible(true);
-            Runnable H_afterFadeOut = () -> {
-                if (musicPlayer != null) {
-                    musicPlayer.stopMusic();
-                }
-                System.exit(0);
-                Runnable H_afterFadeIn = () -> {
-                };
-                fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
+                cardLayout.show(wrapperPanel, "SettingMenu");
+                fadeEffectPanel.startFade(0.0f, 700, () -> {});
             };
             fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
         });
 
-        // Glue atas bawah untuk vertical center
+        exitButton.addActionListener(e -> System.exit(0));
+
         startMenuPanel.add(Box.createVerticalStrut(250));
         startMenuPanel.add(Box.createVerticalGlue());
         startMenuPanel.add(buttonGroup);
@@ -232,24 +215,109 @@ class StartMenuUI extends JFrame {
         mainMenuPanel.add(left);
         mainMenuPanel.add(right);
     }
+    private void setNameInputPanel() {
+        nameInputPanel = new BackgroundPanel("./Assets/bg-start.jpeg");
+        nameInputPanel.setLayout(new BoxLayout(nameInputPanel, BoxLayout.Y_AXIS));
+
+        // Spacer atas besar (sesuaikan dengan posisi logo)
+        nameInputPanel.add(Box.createVerticalStrut(350));
+
+        // Title
+        JLabel titleLabel = new JLabel("Fill Your Name!");
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        titleLabel.setFont(headerFont.deriveFont(24f));
+        titleLabel.setForeground(Color.BLACK);
+        nameInputPanel.add(titleLabel);
+
+        // Spacer antara title dan textfield
+        nameInputPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        // TextField dengan center alignment
+        JTextField nameField = new JTextField(15);
+        nameField.setMaximumSize(new Dimension(300, 30));
+        nameField.setAlignmentX(Component.CENTER_ALIGNMENT);
+        nameField.setFont(paragraphFont.deriveFont(24f));
+        nameInputPanel.add(nameField);
+
+        // Spacer antara textfield dan button
+        nameInputPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        // Submit Button
+        JButton submitButton = new JButton("Submit");
+        submitButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        submitButton.setPreferredSize(new Dimension(200, 30));
+        submitButton.setFont(headerFont.deriveFont(24f));
+        submitButton.setBackground(new Color(0, 20, 20, 20));
+        submitButton.setForeground(Color.BLACK);
+
+// Membuat border transparan
+        submitButton.setBorderPainted(false);
+        submitButton.setFocusPainted(false);
+        submitButton.setContentAreaFilled(false);
+        submitButton.setOpaque(true);
+        submitButton.setBorderPainted(true);
+        nameInputPanel.add(submitButton);
+
+// Spacer bawah
+        nameInputPanel.add(Box.createVerticalGlue());
+
+        submitButton.addActionListener(e -> {
+            String name = nameField.getText().trim();
+            if (!name.isEmpty()) {
+                PlayerData.savePlayerName(name);
+                proceedToMainMenu();
+            }
+        });
+    }
+
+    private void proceedToMainMenu() {
+        fadeEffectPanel.setFadeColor(Color.black);
+        fadeEffectPanel.setCurrentAlpha(0.0f);
+        fadeEffectPanel.setVisible(true);
+        Runnable afterFadeOut = () -> {
+            cardLayout.show(wrapperPanel, "MainMenu");
+            musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
+            updatePlayerNameInUI();
+            fadeEffectPanel.startFade(0.0f, 700, () -> {});
+        };
+        fadeEffectPanel.startFade(1.0f, 700, afterFadeOut);
+    }
+
+    private void updatePlayerNameInUI() {
+        Component[] components = mainMenuPanel.getComponents();
+        for (Component comp : components) {
+            if (comp instanceof JPanel) {
+                Component[] subComps = ((JPanel)comp).getComponents();
+                for (Component subComp : subComps) {
+                    if (subComp instanceof JLabel && ((JLabel)subComp).getText().startsWith("Halo, ")) {
+                        String savedName = PlayerData.getPlayerName();
+                        ((JLabel)subComp).setText("Halo, " + (savedName != null ? savedName : "Trainer"));
+                    }
+                }
+            }
+        }
+    }
+
 
     private void setLeftMainMenu(JPanel left) {
         left.setLayout(null);
-
         left.setBackground(new Color(0, 0, 0, 127)); // alpha 127 = 50%
         left.setOpaque(true);
-        // left.add(Box.createVerticalGlue());
 
-        JLabel playerName1 = new JLabel("Halo, ");
+        String savedName = PlayerData.getPlayerName();
+        JLabel playerName1 = new JLabel("Halo, " + (savedName != null ? savedName : "Trainer"));
         JLabel playerName2 = new JLabel("Siap bertarung?");
         JLabel currentMoney = new JLabel("Uang yang dimiliki : 0");
         JLabel currentCountPokemon = new JLabel("Jumlah Pokemon yang dimiliki : 0");
+
         JButton enterArena = new JButton("Let's Fight");
         JButton enterShop = new JButton("Shop");
         JButton exitToStartMenu = new JButton("Exit");
+        JButton logoutButton = new JButton("Logout");
 
         JLabel[] Allteks = { playerName1, playerName2, currentMoney, currentCountPokemon };
-        JButton[] buttons = { enterArena, enterShop, exitToStartMenu };
+        JButton[] buttons = { enterArena, enterShop, exitToStartMenu, logoutButton };
+
         editButtonAll(buttons);
         editButtonMain(buttons);
 
@@ -258,6 +326,7 @@ class StartMenuUI extends JFrame {
             teks.setForeground(Color.white);
             teks.setFont(headerFont);
         }
+
         for (JButton jButton : buttons) {
             left.add(jButton);
             jButton.setForeground(Color.white);
@@ -270,29 +339,31 @@ class StartMenuUI extends JFrame {
         enterArena.setBounds(50, 250, 250, 50);
         enterShop.setBounds(50, 325, 250, 50);
         exitToStartMenu.setBounds(50, 400, 250, 50);
+        logoutButton.setBounds(50, 475, 250, 50); // Tombol Logout paling bawah
+
         playerName1.setFont(headerFont.deriveFont(30f));
         playerName2.setFont(headerFont.deriveFont(50f));
         currentMoney.setFont(headerFont.deriveFont(18f));
         currentCountPokemon.setFont(headerFont.deriveFont(18f));
 
         left.add(Box.createVerticalGlue());
+
         enterArena.addActionListener(e -> {
             fadeEffectPanel.setFadeColor(Color.black);
             fadeEffectPanel.setCurrentAlpha(0.0f);
             fadeEffectPanel.setVisible(true);
             Runnable H_afterFadeOut = () -> {
                 cardLayout.show(wrapperPanel, "PokemonSelection");
-                Runnable H_afterFadeIn = () -> {
-
-                };
-                fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
+                fadeEffectPanel.startFade(0.0f, 700, () -> {});
             };
             fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
         });
+
         enterShop.addActionListener(e -> {
             cardLayout.show(wrapperPanel, "Shop");
             musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
         });
+
         exitToStartMenu.addActionListener(e -> {
             fadeEffectPanel.setFadeColor(Color.black);
             fadeEffectPanel.setCurrentAlpha(0.0f);
@@ -300,15 +371,18 @@ class StartMenuUI extends JFrame {
             Runnable H_afterFadeOut = () -> {
                 musicPlayer.playMusic(MusicPlayer.MusicType.START_MENU);
                 cardLayout.show(wrapperPanel, "StartMenu");
-
-                Runnable H_afterFadeIn = () -> {
-
-                };
-                fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
+                fadeEffectPanel.startFade(0.0f, 700, () -> {});
             };
             fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
         });
+
+        logoutButton.addActionListener(e -> {
+            PlayerData.clearPlayerName();
+            musicPlayer.playMusic(MusicPlayer.MusicType.START_MENU);
+            cardLayout.show(wrapperPanel, "NameInput");
+        });
     }
+
 
     private void setRightMainMenu(JPanel right) {
         right.setLayout(new OverlayLayout(right));
@@ -533,9 +607,257 @@ class StartMenuUI extends JFrame {
     private void setSettingMenuPanel() {
     }
 
-    private void setShopPanel() {
+private void setShopPanel() {
+    pokemonShopPanel.removeAll();
+    pokemonShopPanel.setLayout(new BoxLayout(pokemonShopPanel, BoxLayout.Y_AXIS));
+    pokemonShopPanel.setBackground(new Color(240, 240, 240));
+
+    // Panel header koin
+    JPanel coinPanel = new JPanel();
+    coinPanel.setOpaque(false);
+    JLabel coinLabel = new JLabel("Koin Anda: " + PlayerData.getCoins());
+    coinLabel.setFont(headerFont.deriveFont(28f));
+    coinLabel.setForeground(new Color(30, 30, 30));
+    coinPanel.add(coinLabel);
+    pokemonShopPanel.add(Box.createVerticalStrut(25));
+    pokemonShopPanel.add(coinPanel);
+
+    // Daftar Pokemon yang belum dimiliki
+    List<Pokemon> notOwned = new ArrayList<>();
+    for (Pokemon p : allPokemons) {
+        if (!ownedPokemons.contains(p)) notOwned.add(p);
     }
 
+    // Panel beli Pokemon baru
+    if (!notOwned.isEmpty()) {
+        JLabel beliLabel = new JLabel("Beli Pokemon Baru:");
+        beliLabel.setFont(headerFont.deriveFont(20f));
+        beliLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        pokemonShopPanel.add(Box.createVerticalStrut(10));
+        pokemonShopPanel.add(beliLabel);
+
+        JPanel beliPanel = new JPanel(new FlowLayout());
+        beliPanel.setOpaque(false);
+        for (Pokemon p : notOwned) {
+            JButton beliBtn = new JButton("Beli " + p.getName() + " (50 koin)");
+            beliBtn.setFont(paragraphFont.deriveFont(14f));
+            beliBtn.addActionListener(e -> {
+                if (PlayerData.getCoins() >= 50) {
+                    PlayerData.spendCoins(50);
+                    ownedPokemons.add(p);
+                    JOptionPane.showMessageDialog(this, "Berhasil membeli " + p.getName() + "!");
+                    setShopPanel();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Koin tidak cukup!");
+                }
+            });
+            beliPanel.add(beliBtn);
+        }
+        pokemonShopPanel.add(beliPanel);
+    }
+
+    // Pilih Pokemon aktif dari koleksi
+    if (!ownedPokemons.isEmpty()) {
+        JPanel pilihPanel = new JPanel(new FlowLayout());
+        pilihPanel.setOpaque(false);
+        pilihPanel.add(new JLabel("Pilih Pokemon Aktif:"));
+        for (Pokemon p : ownedPokemons) {
+            JButton pilihBtn = new JButton(p.getName());
+            pilihBtn.setFont(paragraphFont.deriveFont(14f));
+            pilihBtn.addActionListener(e -> {
+                playerPokemon = p;
+                setShopPanel();
+            });
+            pilihPanel.add(pilihBtn);
+        }
+        pokemonShopPanel.add(pilihPanel);
+    }
+
+    // Panel utama info Pokemon aktif
+    Pokemon currentPokemon = playerPokemon;
+    if (currentPokemon == null) {
+        JLabel info = new JLabel("Anda belum memilih Pokemon.");
+        info.setFont(headerFont.deriveFont(20f));
+        info.setAlignmentX(Component.CENTER_ALIGNMENT);
+        info.setForeground(Color.DARK_GRAY);
+        pokemonShopPanel.add(Box.createVerticalStrut(20));
+        pokemonShopPanel.add(info);
+        pokemonShopPanel.revalidate();
+        pokemonShopPanel.repaint();
+        return;
+    }
+
+    JPanel infoPanel = new JPanel();
+    infoPanel.setOpaque(false);
+    infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.X_AXIS));
+    infoPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+    // Gambar Pokemon
+    JLabel pokemonImage = getScaledImageLabel(currentPokemon.getImagePath(), 160, 160);
+    pokemonImage.setBorder(BorderFactory.createLineBorder(Color.GRAY, 2, true));
+    infoPanel.add(Box.createHorizontalStrut(10));
+    infoPanel.add(pokemonImage);
+    infoPanel.add(Box.createHorizontalStrut(20));
+
+    // Panel info stat
+    JPanel statPanel = new JPanel();
+    statPanel.setOpaque(false);
+    statPanel.setLayout(new BoxLayout(statPanel, BoxLayout.Y_AXIS));
+    JLabel nameLabel = new JLabel(currentPokemon.getName());
+    nameLabel.setFont(headerFont.deriveFont(24f));
+    nameLabel.setForeground(new Color(60, 60, 60));
+    JLabel hpLabel = new JLabel("HP: " + currentPokemon.getMaxHp());
+    JLabel atkLabel = new JLabel("Attack: " + currentPokemon.getAttack());
+    JLabel defLabel = new JLabel("Defense: " + currentPokemon.getDefense());
+    for (JLabel l : new JLabel[]{hpLabel, atkLabel, defLabel}) {
+        l.setFont(paragraphFont.deriveFont(18f));
+        l.setForeground(new Color(80, 80, 80));
+    }
+    statPanel.add(nameLabel);
+    statPanel.add(Box.createVerticalStrut(8));
+    statPanel.add(hpLabel);
+    statPanel.add(atkLabel);
+    statPanel.add(defLabel);
+
+    infoPanel.add(statPanel);
+    infoPanel.add(Box.createHorizontalStrut(10));
+    pokemonShopPanel.add(Box.createVerticalStrut(10));
+    pokemonShopPanel.add(infoPanel);
+
+    // Panel tombol upgrade & evolusi
+    JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+    actionPanel.setOpaque(false);
+
+    JButton upgradeButton = new JButton("Upgrade");
+    upgradeButton.setFont(headerFont.deriveFont(18f));
+    upgradeButton.setBackground(new Color(255, 215, 0));
+    upgradeButton.setForeground(Color.BLACK);
+
+    JButton evolveButton = new JButton("Evolve");
+    evolveButton.setFont(headerFont.deriveFont(18f));
+    evolveButton.setBackground(new Color(100, 200, 255));
+    evolveButton.setForeground(Color.BLACK);
+
+    actionPanel.add(upgradeButton);
+    actionPanel.add(evolveButton);
+    pokemonShopPanel.add(actionPanel);
+
+    // Panel upgrade stat (muncul saat klik upgrade)
+    JPanel upgradePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+    upgradePanel.setOpaque(false);
+    JButton atkBtn = new JButton("Attack +5 (10 koin)");
+    JButton defBtn = new JButton("Defense +5 (10 koin)");
+    JButton hpBtn = new JButton("HP +10 (10 koin)");
+    for (JButton btn : new JButton[]{atkBtn, defBtn, hpBtn}) {
+        btn.setFont(paragraphFont.deriveFont(16f));
+        btn.setBackground(new Color(245, 245, 245));
+        btn.setForeground(Color.BLACK);
+    }
+    upgradePanel.add(atkBtn);
+    upgradePanel.add(defBtn);
+    upgradePanel.add(hpBtn);
+    upgradePanel.setVisible(false);
+    pokemonShopPanel.add(upgradePanel);
+
+    // Event tombol upgrade
+    upgradeButton.addActionListener(e -> {
+        upgradePanel.setVisible(!upgradePanel.isVisible());
+        pokemonShopPanel.revalidate();
+        pokemonShopPanel.repaint();
+    });
+
+    atkBtn.addActionListener(e -> {
+        if (PlayerData.getCoins() >= 10) {
+            currentPokemon.increaseAttackBonus(5);
+            PlayerData.spendCoins(10);
+            coinLabel.setText("Koin Anda: " + PlayerData.getCoins());
+            atkLabel.setText("Attack: " + currentPokemon.getAttack());
+            JOptionPane.showMessageDialog(this, "Attack bertambah +5!");
+        } else {
+            JOptionPane.showMessageDialog(this, "Koin tidak cukup!");
+        }
+    });
+    defBtn.addActionListener(e -> {
+        if (PlayerData.getCoins() >= 10) {
+            currentPokemon.increaseDefenseBonus(5);
+            PlayerData.spendCoins(10);
+            coinLabel.setText("Koin Anda: " + PlayerData.getCoins());
+            defLabel.setText("Defense: " + currentPokemon.getDefense());
+            JOptionPane.showMessageDialog(this, "Defense bertambah +5!");
+        } else {
+            JOptionPane.showMessageDialog(this, "Koin tidak cukup!");
+        }
+    });
+    hpBtn.addActionListener(e -> {
+        if (PlayerData.getCoins() >= 10) {
+            currentPokemon.increaseMaxHp(10);
+            PlayerData.spendCoins(10);
+            coinLabel.setText("Koin Anda: " + PlayerData.getCoins());
+            hpLabel.setText("HP: " + currentPokemon.getMaxHp());
+            JOptionPane.showMessageDialog(this, "HP bertambah +10!");
+        } else {
+            JOptionPane.showMessageDialog(this, "Koin tidak cukup!");
+        }
+    });
+
+    // Evolusi: cek apakah ada evolusi berikutnya
+    Pokemon nextEvolution = PokemonFactory.getNextEvolution(currentPokemon);
+    if (nextEvolution != null) {
+        JPanel evoPanel = new JPanel();
+        evoPanel.setOpaque(false);
+        evoPanel.setLayout(new BoxLayout(evoPanel, BoxLayout.Y_AXIS));
+        JLabel evoText = new JLabel("Evolusi berikutnya:");
+        evoText.setFont(paragraphFont.deriveFont(18f));
+        evoText.setForeground(new Color(80, 80, 80));
+        JLabel evoImage = getScaledImageLabel(nextEvolution.getImagePath(), 120, 120);
+        evoImage.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel evoName = new JLabel(nextEvolution.getName());
+        evoName.setFont(headerFont.deriveFont(18f));
+        evoName.setForeground(new Color(60, 60, 60));
+        evoPanel.add(evoText);
+        evoPanel.add(Box.createVerticalStrut(5));
+        evoPanel.add(evoImage);
+        evoPanel.add(Box.createVerticalStrut(5));
+        evoPanel.add(evoName);
+        pokemonShopPanel.add(evoPanel);
+        evolveButton.setEnabled(true);
+    } else {
+        evolveButton.setEnabled(false);
+        evolveButton.setText("Tidak bisa evolusi");
+    }
+
+    evolveButton.addActionListener(e -> {
+        if (nextEvolution == null) return;
+        int cost = 30;
+        if (PlayerData.getCoins() >= cost) {
+            PlayerData.spendCoins(cost);
+            // Ganti Pokemon aktif dan koleksi dengan evolusi
+            ownedPokemons.remove(currentPokemon);
+            ownedPokemons.add(nextEvolution);
+            playerPokemon = nextEvolution;
+            JOptionPane.showMessageDialog(this, "Pokemon berevolusi menjadi " + nextEvolution.getName() + "!");
+            setShopPanel(); // Refresh tampilan shop
+        } else {
+            JOptionPane.showMessageDialog(this, "Koin tidak cukup untuk evolusi!");
+        }
+    });
+
+    // Tombol kembali ke MainMenu
+    JButton backBtn = new JButton("Kembali ke Menu");
+    backBtn.setFont(headerFont.deriveFont(16f));
+    backBtn.setBackground(new Color(220, 220, 220));
+    backBtn.setForeground(Color.BLACK);
+    backBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+    backBtn.addActionListener(e -> {
+        cardLayout.show(wrapperPanel, "MainMenu");
+        musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
+    });
+    pokemonShopPanel.add(Box.createVerticalStrut(30));
+    pokemonShopPanel.add(backBtn);
+
+    pokemonShopPanel.revalidate();
+    pokemonShopPanel.repaint();
+}
     private void editButtonStart(JButton[] buttons) {
         for (JButton jButton : buttons) {
             jButton.setPreferredSize(new Dimension(150, 40));
