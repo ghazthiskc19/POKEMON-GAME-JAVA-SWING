@@ -903,10 +903,8 @@ class BattleUI {
         ImageIcon icon = new ImageIcon(imagePath);
         Image image = icon.getImage();
 
-        // Resize gambar
         Image scaledImage = image.getScaledInstance(panelWidth, panelHeight, Image.SCALE_SMOOTH);
 
-        // Bungkus ke JLabel
         ImageIcon scaledIcon = new ImageIcon(scaledImage);
         JLabel label = new JLabel(scaledIcon);
 
