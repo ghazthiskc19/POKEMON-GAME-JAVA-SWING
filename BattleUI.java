@@ -141,4 +141,6 @@ public class BattleUI extends JFrame {
 
         return label;
     }
+
+    // if (lockedInfoLabel != null) lockedInfoLabel.setVisible(isPokemonLocked);
 }
