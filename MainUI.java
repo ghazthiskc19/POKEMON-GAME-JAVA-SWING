@@ -55,6 +55,7 @@ class StartMenuUI extends JFrame {
     JPanel arenaPanel;
     JPanel pokemonSelectionPanel;
     JPanel pokemonShopPanel;
+    JPanel nameInputPanel;
 
     // Global Variable
     Color textColor = new Color(21, 22, 21);
@@ -74,6 +75,8 @@ class StartMenuUI extends JFrame {
         setMainMenuPanel();
         setPokemonSelectionPanel();
         setShopPanel();
+        setNameInputPanel();
+        wrapperPanel.add(nameInputPanel, "NameInput");
         add(wrapperPanel);
         setResizable(false);
         fadeEffectPanel = new FadeEffectPanel();
@@ -140,13 +143,13 @@ class StartMenuUI extends JFrame {
 
     private void setStartMenuPanel() {
         startMenuPanel.setLayout(new BoxLayout(startMenuPanel, BoxLayout.Y_AXIS));
-        // Bikin tombol-tombol
+
         JButton startButton = new JButton("Start Game");
         JButton settingButton = new JButton("Settings");
         JButton exitButton = new JButton("Exit");
-        JButton[] buttons = { startButton, settingButton, exitButton };
-        editButtonAll(buttons);
-        editButtonStart(buttons);
+
+        editButtonAll(new JButton[]{startButton, settingButton, exitButton});
+        editButtonStart(new JButton[]{startButton, settingButton, exitButton});
 
         JPanel buttonGroup = new JPanel();
         buttonGroup.setLayout(new BoxLayout(buttonGroup, BoxLayout.Y_AXIS));
@@ -162,19 +165,18 @@ class StartMenuUI extends JFrame {
         buttonGroup.add(Box.createRigidArea(new Dimension(0, 10)));
         buttonGroup.add(exitButton);
 
-        // Set ActionListener
         startButton.addActionListener(e -> {
             fadeEffectPanel.setFadeColor(Color.black);
             fadeEffectPanel.setCurrentAlpha(0.0f);
             fadeEffectPanel.setVisible(true);
             Runnable H_afterFadeOut = () -> {
-                cardLayout.show(wrapperPanel, "MainMenu");
-                musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
-
-                Runnable H_afterFadeIn = () -> {
-
-                };
-                fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
+                if (PlayerData.hasPlayerName()) {
+                    cardLayout.show(wrapperPanel, "MainMenu");
+                    musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
+                } else {
+                    cardLayout.show(wrapperPanel, "NameInput");
+                }
+                fadeEffectPanel.startFade(0.0f, 700, () -> {});
             };
             fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
         });
@@ -184,35 +186,14 @@ class StartMenuUI extends JFrame {
             fadeEffectPanel.setCurrentAlpha(0.0f);
             fadeEffectPanel.setVisible(true);
             Runnable H_afterFadeOut = () -> {
-                if (musicPlayer != null) {
-                    musicPlayer.stopMusic();
-                    cardLayout.show(wrapperPanel, "SettingMenu");
-                    System.exit(0);
-                    Runnable H_afterFadeIn = () -> {
-                    };
-                    fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
-                }
-                ;
-            };
-            fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
-        });
-        exitButton.addActionListener(e -> {
-            fadeEffectPanel.setFadeColor(Color.black);
-            fadeEffectPanel.setCurrentAlpha(0.0f);
-            fadeEffectPanel.setVisible(true);
-            Runnable H_afterFadeOut = () -> {
-                if (musicPlayer != null) {
-                    musicPlayer.stopMusic();
-                }
-                System.exit(0);
-                Runnable H_afterFadeIn = () -> {
-                };
-                fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
+                cardLayout.show(wrapperPanel, "SettingMenu");
+                fadeEffectPanel.startFade(0.0f, 700, () -> {});
             };
             fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
         });
 
-        // Glue atas bawah untuk vertical center
+        exitButton.addActionListener(e -> System.exit(0));
+
         startMenuPanel.add(Box.createVerticalStrut(250));
         startMenuPanel.add(Box.createVerticalGlue());
         startMenuPanel.add(buttonGroup);
@@ -232,24 +213,109 @@ class StartMenuUI extends JFrame {
         mainMenuPanel.add(left);
         mainMenuPanel.add(right);
     }
+    private void setNameInputPanel() {
+        nameInputPanel = new BackgroundPanel("./Assets/bg-start.jpeg");
+        nameInputPanel.setLayout(new BoxLayout(nameInputPanel, BoxLayout.Y_AXIS));
+
+        // Spacer atas besar (sesuaikan dengan posisi logo)
+        nameInputPanel.add(Box.createVerticalStrut(350));
+
+        // Title
+        JLabel titleLabel = new JLabel("Fill Your Name!");
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        titleLabel.setFont(headerFont.deriveFont(24f));
+        titleLabel.setForeground(Color.BLACK);
+        nameInputPanel.add(titleLabel);
+
+        // Spacer antara title dan textfield
+        nameInputPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        // TextField dengan center alignment
+        JTextField nameField = new JTextField(15);
+        nameField.setMaximumSize(new Dimension(300, 30));
+        nameField.setAlignmentX(Component.CENTER_ALIGNMENT);
+        nameField.setFont(paragraphFont.deriveFont(24f));
+        nameInputPanel.add(nameField);
+
+        // Spacer antara textfield dan button
+        nameInputPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        // Submit Button
+        JButton submitButton = new JButton("Submit");
+        submitButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        submitButton.setPreferredSize(new Dimension(200, 30));
+        submitButton.setFont(headerFont.deriveFont(24f));
+        submitButton.setBackground(new Color(0, 20, 20, 20));
+        submitButton.setForeground(Color.BLACK);
+
+// Membuat border transparan
+        submitButton.setBorderPainted(false);
+        submitButton.setFocusPainted(false);
+        submitButton.setContentAreaFilled(false);
+        submitButton.setOpaque(true);
+        submitButton.setBorderPainted(true);
+        nameInputPanel.add(submitButton);
+
+// Spacer bawah
+        nameInputPanel.add(Box.createVerticalGlue());
+
+        submitButton.addActionListener(e -> {
+            String name = nameField.getText().trim();
+            if (!name.isEmpty()) {
+                PlayerData.savePlayerName(name);
+                proceedToMainMenu();
+            }
+        });
+    }
+
+    private void proceedToMainMenu() {
+        fadeEffectPanel.setFadeColor(Color.black);
+        fadeEffectPanel.setCurrentAlpha(0.0f);
+        fadeEffectPanel.setVisible(true);
+        Runnable afterFadeOut = () -> {
+            cardLayout.show(wrapperPanel, "MainMenu");
+            musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
+            updatePlayerNameInUI();
+            fadeEffectPanel.startFade(0.0f, 700, () -> {});
+        };
+        fadeEffectPanel.startFade(1.0f, 700, afterFadeOut);
+    }
+
+    private void updatePlayerNameInUI() {
+        Component[] components = mainMenuPanel.getComponents();
+        for (Component comp : components) {
+            if (comp instanceof JPanel) {
+                Component[] subComps = ((JPanel)comp).getComponents();
+                for (Component subComp : subComps) {
+                    if (subComp instanceof JLabel && ((JLabel)subComp).getText().startsWith("Halo, ")) {
+                        String savedName = PlayerData.getPlayerName();
+                        ((JLabel)subComp).setText("Halo, " + (savedName != null ? savedName : "Trainer"));
+                    }
+                }
+            }
+        }
+    }
+
 
     private void setLeftMainMenu(JPanel left) {
         left.setLayout(null);
-
         left.setBackground(new Color(0, 0, 0, 127)); // alpha 127 = 50%
         left.setOpaque(true);
-        // left.add(Box.createVerticalGlue());
 
-        JLabel playerName1 = new JLabel("Halo, ");
+        String savedName = PlayerData.getPlayerName();
+        JLabel playerName1 = new JLabel("Halo, " + (savedName != null ? savedName : "Trainer"));
         JLabel playerName2 = new JLabel("Siap bertarung?");
         JLabel currentMoney = new JLabel("Uang yang dimiliki : 0");
         JLabel currentCountPokemon = new JLabel("Jumlah Pokemon yang dimiliki : 0");
+
         JButton enterArena = new JButton("Let's Fight");
         JButton enterShop = new JButton("Shop");
         JButton exitToStartMenu = new JButton("Exit");
+        JButton logoutButton = new JButton("Logout");
 
         JLabel[] Allteks = { playerName1, playerName2, currentMoney, currentCountPokemon };
-        JButton[] buttons = { enterArena, enterShop, exitToStartMenu };
+        JButton[] buttons = { enterArena, enterShop, exitToStartMenu, logoutButton };
+
         editButtonAll(buttons);
         editButtonMain(buttons);
 
@@ -258,6 +324,7 @@ class StartMenuUI extends JFrame {
             teks.setForeground(Color.white);
             teks.setFont(headerFont);
         }
+
         for (JButton jButton : buttons) {
             left.add(jButton);
             jButton.setForeground(Color.white);
@@ -270,29 +337,31 @@ class StartMenuUI extends JFrame {
         enterArena.setBounds(50, 250, 250, 50);
         enterShop.setBounds(50, 325, 250, 50);
         exitToStartMenu.setBounds(50, 400, 250, 50);
+        logoutButton.setBounds(50, 475, 250, 50); // Tombol Logout paling bawah
+
         playerName1.setFont(headerFont.deriveFont(30f));
         playerName2.setFont(headerFont.deriveFont(50f));
         currentMoney.setFont(headerFont.deriveFont(18f));
         currentCountPokemon.setFont(headerFont.deriveFont(18f));
 
         left.add(Box.createVerticalGlue());
+
         enterArena.addActionListener(e -> {
             fadeEffectPanel.setFadeColor(Color.black);
             fadeEffectPanel.setCurrentAlpha(0.0f);
             fadeEffectPanel.setVisible(true);
             Runnable H_afterFadeOut = () -> {
                 cardLayout.show(wrapperPanel, "PokemonSelection");
-                Runnable H_afterFadeIn = () -> {
-
-                };
-                fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
+                fadeEffectPanel.startFade(0.0f, 700, () -> {});
             };
             fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
         });
+
         enterShop.addActionListener(e -> {
             cardLayout.show(wrapperPanel, "Shop");
             musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
         });
+
         exitToStartMenu.addActionListener(e -> {
             fadeEffectPanel.setFadeColor(Color.black);
             fadeEffectPanel.setCurrentAlpha(0.0f);
@@ -300,15 +369,18 @@ class StartMenuUI extends JFrame {
             Runnable H_afterFadeOut = () -> {
                 musicPlayer.playMusic(MusicPlayer.MusicType.START_MENU);
                 cardLayout.show(wrapperPanel, "StartMenu");
-
-                Runnable H_afterFadeIn = () -> {
-
-                };
-                fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
+                fadeEffectPanel.startFade(0.0f, 700, () -> {});
             };
             fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
         });
+
+        logoutButton.addActionListener(e -> {
+            PlayerData.clearPlayerName();
+            musicPlayer.playMusic(MusicPlayer.MusicType.START_MENU);
+            cardLayout.show(wrapperPanel, "NameInput");
+        });
     }
+
 
     private void setRightMainMenu(JPanel right) {
         right.setLayout(new OverlayLayout(right));
