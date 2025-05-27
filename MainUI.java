@@ -86,12 +86,9 @@ class StartMenuUI extends JFrame {
     FadeEffectPanel fadeEffectPanel;
     CardLayout cardLayout = new CardLayout();
     JPanel wrapperPanel;
-    // _____________________________________-
     JPanel startMenuPanel;
     JPanel settingMenuPanel;
 
-    // _____________________________________-
-    // tampilin stats pemain di sisi kanan, arahin ke arena dan shop di sisi kiri
     JPanel mainMenuPanel;
     JPanel arenaPanel;
     JPanel pokemonSelectionPanel;
@@ -138,6 +135,9 @@ class StartMenuUI extends JFrame {
         fadeEffectPanel.setCurrentAlpha(1.0f);
         setGlassPane(fadeEffectPanel);
         fadeEffectPanel.setVisible(true);
+
+        // Load saved Pokemon data
+        loadSavedPokemonData();
 
         musicPlayer.playMusic(MusicPlayer.MusicType.START_MENU);
 
@@ -239,6 +239,7 @@ class StartMenuUI extends JFrame {
         }
 
         startButton.addActionListener(e -> {
+            SFXPlayer.playSound(clickSfxPath);
             fadeEffectPanel.setFadeColor(Color.black);
             fadeEffectPanel.setCurrentAlpha(0.0f);
             fadeEffectPanel.setVisible(true);
@@ -256,6 +257,7 @@ class StartMenuUI extends JFrame {
         });
 
         settingButton.addActionListener(e -> {
+            SFXPlayer.playSound(clickSfxPath);
             fadeEffectPanel.setFadeColor(Color.black);
             fadeEffectPanel.setCurrentAlpha(0.0f);
             fadeEffectPanel.setVisible(true);
@@ -617,41 +619,79 @@ class StartMenuUI extends JFrame {
     private void setPokemonButton(JPanel pokemonButton, JPanel pokemonImage) {
         pokemonButtons.clear(); // reset jika panel di-refresh
         String clickSfxPath = "./Assets/Sound/SFX/Button - Sound effect.wav";
-        int i = 1;
-        for (Pokemon pokemon : allPokemons) {
-            if (i % 3 == 1) {
-                JButton btn = new JButton();
-                ImageIcon icon = new ImageIcon(pokemon.getFrontGifPath());
-                btn.setIcon(icon);
-                btn.setFocusable(false);
-                btn.setContentAreaFilled(false);
-                btn.setBorderPainted(false);
-                btn.setOpaque(false);
-                btn.setPreferredSize(new Dimension(175, 175));
-                pokemonButton.add(btn);
-                pokemonButtons.add(btn); // simpan referensi tombol
 
-                btn.addActionListener(e -> {
-                    SFXPlayer.playSound(clickSfxPath);
-                    setPokemonImage(pokemonImage, pokemon); // Selalu tampilkan statistik
-                    if (isPokemonLocked && playerPokemon != pokemon) {
+        // Load owned Pokemon from PlayerData
+        List<String> ownedPokemonNames = PlayerData.getOwnedPokemon();
+
+        // First time playing - show all Pokemon
+        if (ownedPokemonNames.isEmpty()) {
+            int i = 1;
+            for (Pokemon pokemon : allPokemons) {
+                if (i % 3 == 1) {
+                    JButton btn = new JButton();
+                    ImageIcon icon = new ImageIcon(pokemon.getFrontGifPath());
+                    btn.setIcon(icon);
+                    btn.setFocusable(false);
+                    btn.setContentAreaFilled(false);
+                    btn.setBorderPainted(false);
+                    btn.setOpaque(false);
+                    btn.setPreferredSize(new Dimension(175, 175));
+                    pokemonButton.add(btn);
+                    pokemonButtons.add(btn);
+
+                    btn.addActionListener(e -> {
+                        SFXPlayer.playSound(clickSfxPath);
+                        setPokemonImage(pokemonImage, pokemon);
+                        if (isPokemonLocked && playerPokemon != pokemon) {
+                            if (fightButton != null)
+                                fightButton.setEnabled(false);
+                            return;
+                        }
+                        if (playerPokemon == null) {
+                            ownedPokemonCount++;
+                            updateOwnedPokemonLabel();
+                            // Save the selected Pokemon
+                            List<String> newOwnedPokemon = new ArrayList<>();
+                            newOwnedPokemon.add(pokemon.getName());
+                            PlayerData.saveOwnedPokemon(newOwnedPokemon);
+                            PlayerData.saveCurrentPokemon(pokemon.getName());
+                            ownedPokemons.add(pokemon);
+                        }
+                        playerPokemon = pokemon;
                         if (fightButton != null)
-                            fightButton.setEnabled(false);
-                        return;
-                    }
-                    if (playerPokemon == null) {
-                        ownedPokemonCount++;
-                        updateOwnedPokemonLabel();
-                    }
-                    playerPokemon = pokemon;
-                    if (fightButton != null)
-                        fightButton.setEnabled(true);
-                    if (lockedInfoLabel != null)
-                        lockedInfoLabel.setVisible(isPokemonLocked);
-                });
-                availablePokemon.add(pokemon);
+                            fightButton.setEnabled(true);
+                        if (lockedInfoLabel != null)
+                            lockedInfoLabel.setVisible(isPokemonLocked);
+                    });
+                    availablePokemon.add(pokemon);
+                }
+                i++;
             }
-            i++;
+        } else {
+            // If we have saved Pokemon, only show those as buttons
+            for (Pokemon pokemon : allPokemons) {
+                if (ownedPokemonNames.contains(pokemon.getName())) {
+                    JButton btn = new JButton();
+                    ImageIcon icon = new ImageIcon(pokemon.getFrontGifPath());
+                    btn.setIcon(icon);
+                    btn.setFocusable(false);
+                    btn.setContentAreaFilled(false);
+                    btn.setBorderPainted(false);
+                    btn.setOpaque(false);
+                    btn.setPreferredSize(new Dimension(175, 175));
+                    pokemonButton.add(btn);
+                    pokemonButtons.add(btn);
+
+                    btn.addActionListener(e -> {
+                        SFXPlayer.playSound(clickSfxPath);
+                        setPokemonImage(pokemonImage, pokemon);
+                        playerPokemon = pokemon;
+                        if (fightButton != null)
+                            fightButton.setEnabled(true);
+                    });
+                    availablePokemon.add(pokemon);
+                }
+            }
         }
     }
 
@@ -709,7 +749,7 @@ class StartMenuUI extends JFrame {
         Random rand = new Random();
         // Cari kandidat musuh yang berbeda dengan playerPokemon
         ArrayList<Pokemon> enemyCandidates = new ArrayList<>();
-        for (Pokemon p : availablePokemon) {
+        for (Pokemon p : allPokemons) { // Use allPokemons instead of availablePokemon
             if (p != playerPokemon) { // Bandingkan referensi objek
                 enemyCandidates.add(p);
             }
@@ -820,230 +860,146 @@ class StartMenuUI extends JFrame {
         coinLabel.setFont(headerFont.deriveFont(28f));
         coinLabel.setForeground(new Color(30, 30, 30));
         coinPanel.add(coinLabel);
-        pokemonShopPanel.add(Box.createVerticalStrut(25));
+
+        pokemonShopPanel.add(Box.createVerticalStrut(20));
         pokemonShopPanel.add(coinPanel);
-
-        // Daftar Pokemon yang belum dimiliki
-        List<Pokemon> notOwned = new ArrayList<>();
-        for (Pokemon p : allPokemons) {
-            if (!ownedPokemons.contains(p))
-                notOwned.add(p);
-        }
-
-        // Panel beli Pokemon baru
-        if (!notOwned.isEmpty()) {
-            JLabel beliLabel = new JLabel("Beli Pokemon Baru:");
-            beliLabel.setFont(headerFont.deriveFont(20f));
-            beliLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-            pokemonShopPanel.add(Box.createVerticalStrut(10));
-            pokemonShopPanel.add(beliLabel);
-
-            JPanel beliPanel = new JPanel(new FlowLayout());
-            beliPanel.setOpaque(false);
-            for (Pokemon p : notOwned) {
-                JButton beliBtn = new JButton("Beli " + p.getName() + " (50 koin)");
-                beliBtn.setFont(paragraphFont.deriveFont(14f));
-                beliBtn.addActionListener(e -> {
-                    if (PlayerData.getCoins() >= 50) {
-                        PlayerData.spendCoins(50);
-                        ownedPokemons.add(p);
-                        JOptionPane.showMessageDialog(this, "Berhasil membeli " + p.getName() + "!");
-                        setShopPanel();
-                    } else {
-                        JOptionPane.showMessageDialog(this, "Koin tidak cukup!");
-                    }
-                });
-                beliPanel.add(beliBtn);
-            }
-            pokemonShopPanel.add(beliPanel);
-        }
-
-        // Pilih Pokemon aktif dari koleksi
-        if (!ownedPokemons.isEmpty()) {
-            JPanel pilihPanel = new JPanel(new FlowLayout());
-            pilihPanel.setOpaque(false);
-            pilihPanel.add(new JLabel("Pilih Pokemon Aktif:"));
-            for (Pokemon p : ownedPokemons) {
-                JButton pilihBtn = new JButton(p.getName());
-                pilihBtn.setFont(paragraphFont.deriveFont(14f));
-                pilihBtn.addActionListener(e -> {
-                    playerPokemon = p;
-                    setShopPanel();
-                });
-                pilihPanel.add(pilihBtn);
-            }
-            pokemonShopPanel.add(pilihPanel);
-        }
-
-        // Panel utama info Pokemon aktif
-        Pokemon currentPokemon = playerPokemon;
-        if (currentPokemon == null) {
-            JLabel info = new JLabel("Anda belum memilih Pokemon.");
-            info.setFont(headerFont.deriveFont(20f));
-            info.setAlignmentX(Component.CENTER_ALIGNMENT);
-            info.setForeground(Color.DARK_GRAY);
-            pokemonShopPanel.add(Box.createVerticalStrut(20));
-            pokemonShopPanel.add(info);
-            pokemonShopPanel.revalidate();
-            pokemonShopPanel.repaint();
-            return;
-        }
-
-        JPanel infoPanel = new JPanel();
-        infoPanel.setOpaque(false);
-        infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.X_AXIS));
-        infoPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        // Gambar Pokemon
-        JLabel pokemonImage = getScaledImageLabel(currentPokemon.getImagePath(), 160, 160);
-        pokemonImage.setBorder(BorderFactory.createLineBorder(Color.GRAY, 2, true));
-        infoPanel.add(Box.createHorizontalStrut(10));
-        infoPanel.add(pokemonImage);
-        infoPanel.add(Box.createHorizontalStrut(20));
-
-        // Panel info stat
-        JPanel statPanel = new JPanel();
-        statPanel.setOpaque(false);
-        statPanel.setLayout(new BoxLayout(statPanel, BoxLayout.Y_AXIS));
-        JLabel nameLabel = new JLabel(currentPokemon.getName());
-        nameLabel.setFont(headerFont.deriveFont(24f));
-        nameLabel.setForeground(new Color(60, 60, 60));
-        JLabel hpLabel = new JLabel("HP: " + currentPokemon.getMaxHp());
-        JLabel atkLabel = new JLabel("Attack: " + currentPokemon.getAttack());
-        JLabel defLabel = new JLabel("Defense: " + currentPokemon.getDefense());
-        for (JLabel l : new JLabel[] { hpLabel, atkLabel, defLabel }) {
-            l.setFont(paragraphFont.deriveFont(18f));
-            l.setForeground(new Color(80, 80, 80));
-        }
-        statPanel.add(nameLabel);
-        statPanel.add(Box.createVerticalStrut(8));
-        statPanel.add(hpLabel);
-        statPanel.add(atkLabel);
-        statPanel.add(defLabel);
-
-        infoPanel.add(statPanel);
-        infoPanel.add(Box.createHorizontalStrut(10));
         pokemonShopPanel.add(Box.createVerticalStrut(10));
-        pokemonShopPanel.add(infoPanel);
 
-        // Panel tombol upgrade & evolusi
-        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        actionPanel.setOpaque(false);
+        // Panel untuk 4 Pokemon yang bisa dibeli
+        JPanel shopGrid = new JPanel(new GridLayout(1, 4, 10, 10));
+        shopGrid.setOpaque(false);
+        shopGrid.setMaximumSize(new Dimension(700, 500));
 
-        JButton upgradeButton = new JButton("Upgrade");
-        upgradeButton.setFont(headerFont.deriveFont(18f));
-        upgradeButton.setBackground(new Color(255, 215, 0));
-        upgradeButton.setForeground(Color.BLACK);
+        // Dapatkan Pokemon yang bisa dibeli
+        List<Pokemon> availableForPurchase = new ArrayList<>();
+        List<String> currentOwnedNames = PlayerData.getOwnedPokemon();
 
-        JButton evolveButton = new JButton("Evolve");
-        evolveButton.setFont(headerFont.deriveFont(18f));
-        evolveButton.setBackground(new Color(100, 200, 255));
-        evolveButton.setForeground(Color.BLACK);
+        // Basic Pokemon yang bisa dibeli
+        Pokemon[] basicPokemon = {
+                allPokemons.get(0), // Pichu
+                allPokemons.get(3), // Squirtle
+                allPokemons.get(6), // Charmander
+                allPokemons.get(9) // Ralts
+        };
 
-        actionPanel.add(upgradeButton);
-        actionPanel.add(evolveButton);
-        pokemonShopPanel.add(actionPanel);
-
-        // Panel upgrade stat (muncul saat klik upgrade)
-        JPanel upgradePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
-        upgradePanel.setOpaque(false);
-        JButton atkBtn = new JButton("Attack +5 (10 koin)");
-        JButton defBtn = new JButton("Defense +5 (10 koin)");
-        JButton hpBtn = new JButton("HP +10 (10 koin)");
-        for (JButton btn : new JButton[] { atkBtn, defBtn, hpBtn }) {
-            btn.setFont(paragraphFont.deriveFont(16f));
-            btn.setBackground(new Color(245, 245, 245));
-            btn.setForeground(Color.BLACK);
-        }
-        upgradePanel.add(atkBtn);
-        upgradePanel.add(defBtn);
-        upgradePanel.add(hpBtn);
-        upgradePanel.setVisible(false);
-        pokemonShopPanel.add(upgradePanel);
-
-        // Event tombol upgrade
-        upgradeButton.addActionListener(e -> {
-            upgradePanel.setVisible(!upgradePanel.isVisible());
-            pokemonShopPanel.revalidate();
-            pokemonShopPanel.repaint();
-        });
-
-        atkBtn.addActionListener(e -> {
-            if (PlayerData.getCoins() >= 10) {
-                currentPokemon.increaseAttackBonus(5);
-                PlayerData.spendCoins(10);
-                coinLabel.setText("Koin Anda: " + PlayerData.getCoins());
-                atkLabel.setText("Attack: " + currentPokemon.getAttack());
-                JOptionPane.showMessageDialog(this, "Attack bertambah +5!");
+        for (Pokemon basic : basicPokemon) {
+            if (currentOwnedNames.contains(basic.getName())) {
+                // Jika memiliki basic form, cek evolusi berikutnya
+                Pokemon nextEvo = PokemonFactory.getNextEvolution(basic);
+                if (nextEvo != null && !currentOwnedNames.contains(nextEvo.getName())) {
+                    availableForPurchase.add(nextEvo);
+                }
             } else {
-                JOptionPane.showMessageDialog(this, "Koin tidak cukup!");
+                // Jika tidak memiliki basic form, tampilkan basic form
+                availableForPurchase.add(basic);
             }
-        });
-        defBtn.addActionListener(e -> {
-            if (PlayerData.getCoins() >= 10) {
-                currentPokemon.increaseDefenseBonus(5);
-                PlayerData.spendCoins(10);
-                coinLabel.setText("Koin Anda: " + PlayerData.getCoins());
-                defLabel.setText("Defense: " + currentPokemon.getDefense());
-                JOptionPane.showMessageDialog(this, "Defense bertambah +5!");
-            } else {
-                JOptionPane.showMessageDialog(this, "Koin tidak cukup!");
-            }
-        });
-        hpBtn.addActionListener(e -> {
-            if (PlayerData.getCoins() >= 10) {
-                currentPokemon.increaseMaxHp(10);
-                PlayerData.spendCoins(10);
-                coinLabel.setText("Koin Anda: " + PlayerData.getCoins());
-                hpLabel.setText("HP: " + currentPokemon.getMaxHp());
-                JOptionPane.showMessageDialog(this, "HP bertambah +10!");
-            } else {
-                JOptionPane.showMessageDialog(this, "Koin tidak cukup!");
-            }
-        });
-
-        // Evolusi: cek apakah ada evolusi berikutnya
-        Pokemon nextEvolution = PokemonFactory.getNextEvolution(currentPokemon);
-        if (nextEvolution != null) {
-            JPanel evoPanel = new JPanel();
-            evoPanel.setOpaque(false);
-            evoPanel.setLayout(new BoxLayout(evoPanel, BoxLayout.Y_AXIS));
-            JLabel evoText = new JLabel("Evolusi berikutnya:");
-            evoText.setFont(paragraphFont.deriveFont(18f));
-            evoText.setForeground(new Color(80, 80, 80));
-            JLabel evoImage = getScaledImageLabel(nextEvolution.getImagePath(), 120, 120);
-            evoImage.setAlignmentX(Component.CENTER_ALIGNMENT);
-            JLabel evoName = new JLabel(nextEvolution.getName());
-            evoName.setFont(headerFont.deriveFont(18f));
-            evoName.setForeground(new Color(60, 60, 60));
-            evoPanel.add(evoText);
-            evoPanel.add(Box.createVerticalStrut(5));
-            evoPanel.add(evoImage);
-            evoPanel.add(Box.createVerticalStrut(5));
-            evoPanel.add(evoName);
-            pokemonShopPanel.add(evoPanel);
-            evolveButton.setEnabled(true);
-        } else {
-            evolveButton.setEnabled(false);
-            evolveButton.setText("Tidak bisa evolusi");
         }
 
-        evolveButton.addActionListener(e -> {
-            if (nextEvolution == null)
-                return;
-            int cost = 30;
-            if (PlayerData.getCoins() >= cost) {
-                PlayerData.spendCoins(cost);
-                // Ganti Pokemon aktif dan koleksi dengan evolusi
-                ownedPokemons.remove(currentPokemon);
-                ownedPokemons.add(nextEvolution);
-                playerPokemon = nextEvolution;
-                JOptionPane.showMessageDialog(this, "Pokemon berevolusi menjadi " + nextEvolution.getName() + "!");
-                setShopPanel(); // Refresh tampilan shop
-            } else {
-                JOptionPane.showMessageDialog(this, "Koin tidak cukup untuk evolusi!");
+        for (Pokemon pokemon : availableForPurchase) {
+            JPanel pokemonCard = new JPanel();
+            pokemonCard.setLayout(new BoxLayout(pokemonCard, BoxLayout.Y_AXIS));
+            pokemonCard.setBackground(new Color(255, 255, 255, 200));
+            pokemonCard.setBorder(BorderFactory.createLineBorder(Color.GRAY, 2, true));
+            pokemonCard.setPreferredSize(new Dimension(300, 400));
+
+            // Pokemon GIF
+            JLabel pokemonGif = new JLabel(new ImageIcon(pokemon.getFrontGifPath()));
+            pokemonGif.setAlignmentX(Component.CENTER_ALIGNMENT);
+            pokemonGif.setPreferredSize(new Dimension(150, 150));
+            pokemonCard.add(Box.createVerticalStrut(10));
+            pokemonCard.add(pokemonGif);
+
+            // Pokemon Name
+            JLabel nameLabel = new JLabel(pokemon.getName());
+            nameLabel.setFont(headerFont.deriveFont(20f));
+            nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            pokemonCard.add(Box.createVerticalStrut(10));
+            pokemonCard.add(nameLabel);
+
+            // Pokemon Type
+            JLabel typeLabel = new JLabel("Type: " + pokemon.getType());
+            typeLabel.setFont(headerFont.deriveFont(16f));
+            typeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            pokemonCard.add(typeLabel);
+
+            // Pokemon Stats
+            JLabel statsLabel = new JLabel(String.format("HP: %d | ATK: %d | DEF: %d",
+                    pokemon.getMaxHp(), pokemon.getAttack(), pokemon.getDefense()));
+            statsLabel.setFont(headerFont.deriveFont(14f));
+            statsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            pokemonCard.add(statsLabel);
+
+            // Evolution Requirements
+            boolean isEvolution = !pokemon.getName().equals("Pichu") &&
+                    !pokemon.getName().equals("Squirtle") &&
+                    !pokemon.getName().equals("Charmander") &&
+                    !pokemon.getName().equals("Ralts");
+
+            if (isEvolution) {
+                Pokemon prevEvo = null;
+                for (int i = 1; i < allPokemons.size(); i++) {
+                    if (allPokemons.get(i).getName().equals(pokemon.getName())) {
+                        prevEvo = allPokemons.get(i - 1);
+                        break;
+                    }
+                }
+                if (prevEvo != null) {
+                    JLabel reqLabel = new JLabel("Requires: " + prevEvo.getName());
+                    reqLabel.setFont(headerFont.deriveFont(14f));
+                    reqLabel.setForeground(new Color(100, 100, 100));
+                    reqLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                    pokemonCard.add(reqLabel);
+                }
             }
-        });
+
+            // Buy Button
+            int cost = isEvolution ? 75 : 50;
+            JButton buyButton = new JButton("Buy (" + cost + " coins)");
+            buyButton.setFont(headerFont.deriveFont(16f));
+            buyButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+            buyButton.setPreferredSize(new Dimension(200, 40));
+            buyButton.addActionListener(e -> {
+                if (PlayerData.getCoins() >= cost) {
+                    PlayerData.spendCoins(cost);
+
+                    // Jika ini evolusi, hapus Pokemon sebelumnya
+                    if (isEvolution) {
+                        Pokemon prevEvo = null;
+                        for (int i = 1; i < allPokemons.size(); i++) {
+                            if (allPokemons.get(i).getName().equals(pokemon.getName())) {
+                                prevEvo = allPokemons.get(i - 1);
+                                break;
+                            }
+                        }
+                        if (prevEvo != null) {
+                            ownedPokemons.remove(prevEvo);
+                            List<String> updatedOwnedNames = new ArrayList<>(PlayerData.getOwnedPokemon());
+                            updatedOwnedNames.remove(prevEvo.getName());
+                            PlayerData.saveOwnedPokemon(updatedOwnedNames);
+                        }
+                    }
+
+                    // Tambahkan Pokemon baru
+                    ownedPokemons.add(pokemon);
+                    List<String> updatedOwnedNames = new ArrayList<>(PlayerData.getOwnedPokemon());
+                    updatedOwnedNames.add(pokemon.getName());
+                    PlayerData.saveOwnedPokemon(updatedOwnedNames);
+
+                    JOptionPane.showMessageDialog(this, "Berhasil membeli " + pokemon.getName() + "!");
+                    setShopPanel(); // Refresh shop
+                } else {
+                    JOptionPane.showMessageDialog(this, "Koin tidak cukup!");
+                }
+            });
+            pokemonCard.add(Box.createVerticalStrut(10));
+            pokemonCard.add(buyButton);
+            pokemonCard.add(Box.createVerticalStrut(10));
+
+            shopGrid.add(pokemonCard);
+        }
+
+        pokemonShopPanel.add(shopGrid);
+        pokemonShopPanel.add(Box.createVerticalStrut(20));
 
         // Tombol kembali ke MainMenu
         JButton backBtn = new JButton("Kembali ke Menu");
@@ -1051,12 +1007,14 @@ class StartMenuUI extends JFrame {
         backBtn.setBackground(new Color(220, 220, 220));
         backBtn.setForeground(Color.BLACK);
         backBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        backBtn.setPreferredSize(new Dimension(200, 40));
         backBtn.addActionListener(e -> {
             cardLayout.show(wrapperPanel, "MainMenu");
             musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
         });
-        pokemonShopPanel.add(Box.createVerticalStrut(30));
+
         pokemonShopPanel.add(backBtn);
+        pokemonShopPanel.add(Box.createVerticalStrut(20));
 
         pokemonShopPanel.revalidate();
         pokemonShopPanel.repaint();
@@ -1115,11 +1073,7 @@ class StartMenuUI extends JFrame {
     private JLabel getScaledImageLabel(String imagePath, int panelWidth, int panelHeight) {
         ImageIcon icon = new ImageIcon(imagePath);
         Image image = icon.getImage();
-
-        // Resize gambar
         Image scaledImage = image.getScaledInstance(panelWidth, panelHeight, Image.SCALE_SMOOTH);
-
-        // Bungkus ke JLabel
         ImageIcon scaledIcon = new ImageIcon(scaledImage);
         JLabel label = new JLabel(scaledIcon);
 
@@ -1144,6 +1098,36 @@ class StartMenuUI extends JFrame {
     public void addCoins(int amount) {
         coins += amount;
         updateCoinLabel();
+    }
+
+    // Add this method to load saved Pokemon data when the game starts
+    private void loadSavedPokemonData() {
+        List<String> ownedPokemonNames = PlayerData.getOwnedPokemon();
+        if (!ownedPokemonNames.isEmpty()) {
+            ownedPokemonCount = ownedPokemonNames.size();
+            updateOwnedPokemonLabel();
+
+            // Find and set current Pokemon
+            String currentPokemonName = PlayerData.getCurrentPokemon();
+            if (!currentPokemonName.isEmpty()) {
+                for (Pokemon pokemon : allPokemons) {
+                    if (pokemon.getName().equals(currentPokemonName)) {
+                        playerPokemon = pokemon;
+                        ownedPokemons.add(pokemon);
+                        break;
+                    }
+                }
+            }
+
+            // Add all owned Pokemon to ownedPokemons list
+            for (String pokemonName : ownedPokemonNames) {
+                for (Pokemon pokemon : allPokemons) {
+                    if (pokemon.getName().equals(pokemonName) && !ownedPokemons.contains(pokemon)) {
+                        ownedPokemons.add(pokemon);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1310,12 +1294,10 @@ class BattleUI {
         if (move.getSfxPath() != null && !move.getSfxPath().isEmpty()) {
             SFXPlayer.playSound(move.getSfxPath()); // <-- PANGGIL SFX DI SINI
         }
-        // Tentukan target animasi dan Pokemon defender
         JLabel targetLabelForAnimation = enemyLabel; // Default untuk serangan
         Pokemon defender = enemyPokemon;
         Pokemon attacker = playerPokemon;
 
-        // Jika move adalah HEAL atau BUFF yang targetnya diri sendiri
         if (move.getType() == Type.HEAL || move.getType() == Type.BUFF) {
             targetLabelForAnimation = playerLabel; // Animasi di dekat pengguna move
         }
@@ -1330,8 +1312,6 @@ class BattleUI {
                 statusLabel.setText(attacker.getName() + " healed itself for " + move.getPower() + " HP!");
                 updateHealthDisplay();
             } else if (move.getType() == Type.BUFF) {
-                // Untuk Buff, kita tentukan efeknya berdasarkan nama move (untuk sementara)
-                // Atau bisa juga berdasarkan sub-tipe buff jika ada
                 if (move.getName().equalsIgnoreCase("Buff")) { // Asumsi "Buff" meningkatkan Attack
                     attacker.increaseAttackBonus(move.getPower());
                     statusLabel.setText(attacker.getName() + "'s Attack rose by " + move.getPower() + "!");
@@ -1344,7 +1324,6 @@ class BattleUI {
                     attacker.increaseAttackBonus(move.getPower()); // Default ke attack
                     statusLabel.setText(attacker.getName() + " powered up!");
                 }
-                // Tidak ada updateHealthDisplay() kecuali buff juga heal
             } else { // Ini adalah move serangan (damaging move)
                 int damage = Battle.calculateDamage(attacker, move, defender);
                 defender.takeDamage(damage);
@@ -1362,8 +1341,8 @@ class BattleUI {
                     } else {
                         // Player menang
                         if (parentUI != null)
-                            parentUI.addCoins(1000);
-                        showVictoryPanel(parentUI.coins - 1000, 1000);
+                            parentUI.addCoins(100);
+                        showVictoryPanel(parentUI.coins - 1000, 100);
                     }
                     turnEnds = false;
                 }
@@ -1507,7 +1486,7 @@ class BattleUI {
         JPanel victoryPanel = new JPanel();
         victoryPanel.setLayout(new BoxLayout(victoryPanel, BoxLayout.Y_AXIS));
         victoryPanel.setBackground(new Color(0, 0, 0, 200));
-        victoryPanel.setBounds(arenaPanel.getWidth() / 2 - 150, arenaPanel.getHeight() / 2 - 100, 300, 200);
+        victoryPanel.setBounds(arenaPanel.getWidth() / 2 - 150, arenaPanel.getHeight() / 2 - 100, 500, 300);
 
         JLabel victoryLabel = new JLabel("VICTORY!");
         victoryLabel.setFont(headerFont.deriveFont(32f));
