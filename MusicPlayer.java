@@ -10,6 +10,7 @@ public class MusicPlayer {
         ARENA
     }
 
+    private int currentVolumePercent = 70; // Default volume percent
     private Clip currentClip;
     private Thread musicThread;
     private volatile boolean isPlaying = false;
@@ -69,7 +70,9 @@ public class MusicPlayer {
                 AudioInputStream audioStream = AudioSystem.getAudioInputStream(audioFile);
                 currentClip = AudioSystem.getClip();
                 currentClip.open(audioStream);
+                setVolumePercent(currentVolumePercent);
                 currentClip.loop(Clip.LOOP_CONTINUOUSLY); // Loop musik
+                // setVolume(currentVolumePercent); // Setel volume awal
                 currentClip.start();
 
                 while (isPlaying) {
@@ -131,5 +134,43 @@ public class MusicPlayer {
             currentClip = null;
         }
         System.out.println("Fungsi stopMusic selesai.");
+    }
+
+    public void setVolumePercent(int percent) {
+        currentVolumePercent = percent; // Simpan volume saat ini
+        if (currentClip != null) {
+            FloatControl gainControl = (FloatControl) currentClip.getControl(FloatControl.Type.MASTER_GAIN);
+            float min = gainControl.getMinimum();
+            float max = gainControl.getMaximum();
+            float gain;
+            if (percent == 0) {
+                gain = min;
+            } else {
+                gain = (float) (Math.log10(percent / 100.0) * 20.0);
+                if (gain < min)
+                    gain = min;
+                if (gain > max)
+                    gain = max;
+            }
+            gainControl.setValue(gain);
+        }
+    }
+
+    private void setVolume(int volume) {
+        if (currentClip != null) {
+            FloatControl gainControl = (FloatControl) currentClip.getControl(FloatControl.Type.MASTER_GAIN);
+            float min = gainControl.getMinimum();
+            float max = gainControl.getMaximum();
+            float gain = min + (max - min) * volume;
+            gainControl.setValue(gain);
+        }
+    }
+
+    public int getVolumePercent() {
+        return currentVolumePercent;
+    }
+
+    public boolean isVolumeControlSupported() {
+        return true;
     }
 }

@@ -17,7 +17,6 @@ public class Pokemon {
 
     private Pokemon nextEvolution;
 
-
     public Pokemon(String name, Type type, int hp, int attack, int defense,
             String imagePath, String backImagePath, String frontImagePath) {
         this.name = name;
@@ -34,7 +33,6 @@ public class Pokemon {
         this.defenseBonus = 0; // Bonus defense awal = 0
     }
 
-   
     public void evolve() {
         if (nextEvolution != null) {
             this.name = nextEvolution.name;
@@ -148,9 +146,7 @@ public class Pokemon {
         this.currentHp = this.maxHp;
     }
 
-
     public void increaseMaxHp(int i) {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'increaseMaxHp'");
     }
 }
