@@ -99,12 +99,23 @@ class StartMenuUI extends JFrame {
     JPanel nameInputPanel;
     ArrayList<Pokemon> ownedPokemons = new ArrayList<>();
 
+    boolean isPokemonLocked = false; // true jika sudah pernah pilih pokemon
+    // false jika belum pernah pilih pokemon, jadi bisa pilih pokemon lain
+
     // Global Variable
     Color textColor = new Color(21, 22, 21);
     Color textColor2 = new Color(255, 255, 255);
     Color backgroundColor = new Color(181, 163, 91);
     Font headerFont;
     Font paragraphFont;
+    int coins = 0; // jumlah koin pemain
+    JLabel currentMoney; // label untuk menampilkan koin
+    int ownedPokemonCount = 0; // jumlah pokemon yang dimiliki
+    JLabel currentCountPokemon; // label untuk menampilkan jumlah pokemon
+
+    private JButton fightButton; // Tambahkan ini!
+
+    private JLabel lockedInfoLabel; // Tambahkan di class StartMenuUI
 
     StartMenuUI() {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -386,9 +397,8 @@ class StartMenuUI extends JFrame {
         String savedName = PlayerData.getPlayerName();
         JLabel playerName1 = new JLabel("Halo, " + (savedName != null ? savedName : "Trainer"));
         JLabel playerName2 = new JLabel("Siap bertarung?");
-        JLabel currentMoney = new JLabel("Uang yang dimiliki : 0");
-        JLabel currentCountPokemon = new JLabel("Jumlah Pokemon yang dimiliki : 0");
-
+        currentMoney = new JLabel("Uang yang dimiliki : " + coins + " koin");
+        currentCountPokemon = new JLabel("Jumlah Pokemon yang dimiliki : " + ownedPokemonCount);
         JButton enterArena = new JButton("Let's Fight");
         JButton enterShop = new JButton("Shop");
         JButton exitToStartMenu = new JButton("Exit");
@@ -602,7 +612,10 @@ class StartMenuUI extends JFrame {
         pokemonImage.repaint();
     }
 
+    private ArrayList<JButton> pokemonButtons = new ArrayList<>(); // Tambahkan ini di class
+
     private void setPokemonButton(JPanel pokemonButton, JPanel pokemonImage) {
+        pokemonButtons.clear(); // reset jika panel di-refresh
         String clickSfxPath = "./Assets/Sound/SFX/Button - Sound effect.wav";
         int i = 1;
         for (Pokemon pokemon : allPokemons) {
@@ -616,10 +629,25 @@ class StartMenuUI extends JFrame {
                 btn.setOpaque(false);
                 btn.setPreferredSize(new Dimension(175, 175));
                 pokemonButton.add(btn);
+                pokemonButtons.add(btn); // simpan referensi tombol
+
                 btn.addActionListener(e -> {
                     SFXPlayer.playSound(clickSfxPath);
-                    setPokemonImage(pokemonImage, pokemon);
+                    setPokemonImage(pokemonImage, pokemon); // Selalu tampilkan statistik
+                    if (isPokemonLocked && playerPokemon != pokemon) {
+                        if (fightButton != null)
+                            fightButton.setEnabled(false);
+                        return;
+                    }
+                    if (playerPokemon == null) {
+                        ownedPokemonCount++;
+                        updateOwnedPokemonLabel();
+                    }
                     playerPokemon = pokemon;
+                    if (fightButton != null)
+                        fightButton.setEnabled(true);
+                    if (lockedInfoLabel != null)
+                        lockedInfoLabel.setVisible(isPokemonLocked);
                 });
                 availablePokemon.add(pokemon);
             }
@@ -629,28 +657,29 @@ class StartMenuUI extends JFrame {
 
     private void setPlayExitButton(JPanel playExitButton) {
         String clickSfxPath = "./Assets/Sound/SFX/Button - Sound effect.wav";
-        JButton fight = new JButton("Let's Go!!");
+        fightButton = new JButton("Let's Go!!");
         JButton exit = new JButton("Exit");
-        JButton[] buttons = { fight, exit };
+        JButton[] buttons = { fightButton, exit };
         for (JButton jButton : buttons) {
             jButton.setForeground(Color.white);
         }
         editButtonAll(buttons);
 
         playExitButton.add(exit);
-        playExitButton.add(fight);
-        // Button actions
-        fight.addActionListener(e -> {
+        playExitButton.add(fightButton);
+        fightButton.addActionListener(e -> {
             SFXPlayer.playSound(clickSfxPath);
+            // Jika belum pilih pokemon, tombol tidak melakukan apa-apa
+            if (playerPokemon == null) {
+                JOptionPane.showMessageDialog(this, "Pilih Pokemon dulu, bro!", "Pokemon Belum Dipilih",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             fadeEffectPanel.setFadeColor(Color.black);
             fadeEffectPanel.setCurrentAlpha(0.0f);
             fadeEffectPanel.setVisible(true);
             Runnable H_afterFadeOut = () -> {
-                if (playerPokemon == null) {
-                    JOptionPane.showMessageDialog(this, "Pilih Pokemon dulu, bro!", "Pokemon Belum Dipilih",
-                            JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
+                isPokemonLocked = true; // Kunci pilihan
                 cardLayout.show(wrapperPanel, "Arena");
                 musicPlayer.playMusic(MusicPlayer.MusicType.ARENA);
                 setArenaPanel();
@@ -678,13 +707,22 @@ class StartMenuUI extends JFrame {
 
     private void setArenaPanel() {
         Random rand = new Random();
-        enemyPokemon = availablePokemon.get(rand.nextInt(availablePokemon.size()));
-        if (playerPokemon == null || enemyPokemon == null) {
+        // Cari kandidat musuh yang berbeda dengan playerPokemon
+        ArrayList<Pokemon> enemyCandidates = new ArrayList<>();
+        for (Pokemon p : availablePokemon) {
+            if (p != playerPokemon) { // Bandingkan referensi objek
+                enemyCandidates.add(p);
+            }
+        }
+        if (enemyCandidates.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Tidak ada musuh yang tersedia selain Pokémon kamu sendiri!", "Error",
+                    JOptionPane.ERROR_MESSAGE);
             cardLayout.show(wrapperPanel, "PokemonSelection");
             return;
         }
+        enemyPokemon = enemyCandidates.get(rand.nextInt(enemyCandidates.size()));
         new BattleUI(playerPokemon, enemyPokemon, arenaPanel, headerFont, cardLayout, wrapperPanel, musicPlayer,
-                fadeEffectPanel);
+                fadeEffectPanel, this);
     }
 
     private void setSettingMenuPanel() {
@@ -1025,20 +1063,46 @@ class StartMenuUI extends JFrame {
     }
 
     private void editButtonStart(JButton[] buttons) {
+        Color normal = new Color(220, 220, 220, 180); // abu/transparan seperti gambar 1
+        Color text = Color.WHITE;
         for (JButton jButton : buttons) {
-            jButton.setPreferredSize(new Dimension(150, 40));
-            jButton.setBackground(backgroundColor);
-            jButton.setForeground(textColor);
+            jButton.setPreferredSize(new Dimension(200, 50));
+            jButton.setBackground(normal);
+            jButton.setForeground(text);
+            jButton.setFont(headerFont.deriveFont(30f));
+            jButton.setBorderPainted(false);
+            jButton.setOpaque(true);
+            jButton.setContentAreaFilled(true);
         }
     }
 
     private void editButtonAll(JButton[] buttons) {
+        Color normal = new Color(220, 220, 220, 180); // abu/transparan seperti gambar 1
+        Color hover = Color.WHITE;
+        Color text = Color.WHITE;
+
         for (JButton jButton : buttons) {
             jButton.setFocusable(false);
             jButton.setFont(headerFont.deriveFont(30f));
-            jButton.setContentAreaFilled(false);
+            jButton.setContentAreaFilled(true);
             jButton.setBorderPainted(false);
-            jButton.setOpaque(false);
+            jButton.setOpaque(true);
+            jButton.setBackground(normal);
+            jButton.setForeground(text);
+
+            jButton.addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override
+                public void mouseEntered(java.awt.event.MouseEvent evt) {
+                    jButton.setBackground(hover);
+                    jButton.setForeground(Color.BLACK);
+                }
+
+                @Override
+                public void mouseExited(java.awt.event.MouseEvent evt) {
+                    jButton.setBackground(normal);
+                    jButton.setForeground(text);
+                }
+            });
         }
     }
 
@@ -1065,6 +1129,22 @@ class StartMenuUI extends JFrame {
         return label;
     }
 
+    private void updateCoinLabel() {
+        if (currentMoney != null) {
+            currentMoney.setText("Uang yang dimiliki : " + coins + " koin");
+        }
+    }
+
+    private void updateOwnedPokemonLabel() {
+        if (currentCountPokemon != null) {
+            currentCountPokemon.setText("Jumlah Pokemon yang dimiliki : " + ownedPokemonCount);
+        }
+    }
+
+    public void addCoins(int amount) {
+        coins += amount;
+        updateCoinLabel();
+    }
 }
 
 class BattleUI {
@@ -1086,8 +1166,11 @@ class BattleUI {
     private JPanel wrapperPanelInstance;
     private FadeEffectPanel fadeEffectPanel;
 
+    private StartMenuUI parentUI;
+
     public BattleUI(Pokemon playerPokemon, Pokemon enemyPokemon, JPanel arenaPanel, Font headerFont,
-            CardLayout cardLayout, JPanel wrapperPanel, MusicPlayer musicPlayer, FadeEffectPanel fadeEffectPanel) {
+            CardLayout cardLayout, JPanel wrapperPanel, MusicPlayer musicPlayer, FadeEffectPanel fadeEffectPanel,
+            StartMenuUI parentUI) {
         this.playerPokemon = playerPokemon;
         this.enemyPokemon = enemyPokemon;
         this.arenaPanel = arenaPanel;
@@ -1098,6 +1181,7 @@ class BattleUI {
         this.fadeEffectPanel = fadeEffectPanel;
         this.playerPokemon.resetHp(); // Pastikan method resetHp() ada di Pokemon.java
         this.enemyPokemon.resetHp(); // Pastikan method resetHp() ada di Pokemon.java
+        this.parentUI = parentUI;
 
         initializeUI();
     }
@@ -1272,7 +1356,16 @@ class BattleUI {
                     setMoveButtonsEnabled(false);
                     backToMenuButton.setVisible(true);
                     restartGameButton.setVisible(true);
-                    turnEnds = false; // Pertarungan selesai, tidak ada giliran musuh
+                    if (defender == playerPokemon) {
+                        // Player kalah
+                        showDefeatPanel(parentUI.coins);
+                    } else {
+                        // Player menang
+                        if (parentUI != null)
+                            parentUI.addCoins(1000);
+                        showVictoryPanel(parentUI.coins - 1000, 1000);
+                    }
+                    turnEnds = false;
                 }
             }
 
@@ -1322,7 +1415,8 @@ class BattleUI {
                         attacker.increaseAttackBonus(move.getPower());
                         statusLabel.setText(attacker.getName() + " powered up!");
                     }
-                } else { // Damaging move
+                } else // Damaging move
+                {
                     int damage = Battle.calculateDamage(attacker, move, defender);
                     defender.takeDamage(damage);
                     statusLabel.setText(
@@ -1331,9 +1425,18 @@ class BattleUI {
 
                     if (defender.isFainted()) {
                         statusLabel.setText(defender.getName() + " fainted! " + attacker.getName() + " wins!");
-                        setMoveButtonsEnabled(false); // Tombol player tetap mati
+                        setMoveButtonsEnabled(false);
                         backToMenuButton.setVisible(true);
                         restartGameButton.setVisible(true);
+                        if (defender == playerPokemon) {
+                            // Player kalah
+                            showDefeatPanel(parentUI.coins);
+                        } else {
+                            // Player menang
+                            if (parentUI != null)
+                                parentUI.addCoins(1000);
+                            showVictoryPanel(parentUI.coins - 1000, 1000);
+                        }
                         turnEnds = false;
                     }
                 }
@@ -1398,5 +1501,77 @@ class BattleUI {
         label.setVerticalAlignment(SwingConstants.CENTER);
 
         return label;
+    }
+
+    private void showVictoryPanel(int coinsBefore, int coinsAdded) {
+        JPanel victoryPanel = new JPanel();
+        victoryPanel.setLayout(new BoxLayout(victoryPanel, BoxLayout.Y_AXIS));
+        victoryPanel.setBackground(new Color(0, 0, 0, 200));
+        victoryPanel.setBounds(arenaPanel.getWidth() / 2 - 150, arenaPanel.getHeight() / 2 - 100, 300, 200);
+
+        JLabel victoryLabel = new JLabel("VICTORY!");
+        victoryLabel.setFont(headerFont.deriveFont(32f));
+        victoryLabel.setForeground(Color.YELLOW);
+        victoryLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel coinsLabel = new JLabel("Koin sekarang: " + parentUI.coins);
+        coinsLabel.setFont(headerFont.deriveFont(20f));
+        coinsLabel.setForeground(Color.WHITE);
+        coinsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel plusLabel = new JLabel("(+" + coinsAdded + " koin)");
+        plusLabel.setFont(headerFont.deriveFont(18f));
+        plusLabel.setForeground(Color.GREEN);
+        plusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        victoryPanel.add(Box.createVerticalGlue());
+        victoryPanel.add(victoryLabel);
+        victoryPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+        victoryPanel.add(coinsLabel);
+        victoryPanel.add(plusLabel);
+        victoryPanel.add(Box.createVerticalGlue());
+
+        victoryPanel.setOpaque(true);
+        victoryPanel.setBorder(BorderFactory.createLineBorder(Color.YELLOW, 3));
+        victoryPanel.setVisible(true);
+
+        arenaPanel.add(victoryPanel, 0);
+        arenaPanel.repaint();
+    }
+
+    private void showDefeatPanel(int coinsBefore) {
+        JPanel defeatPanel = new JPanel();
+        defeatPanel.setLayout(new BoxLayout(defeatPanel, BoxLayout.Y_AXIS));
+        defeatPanel.setBackground(new Color(0, 0, 0, 200));
+        defeatPanel.setBounds(arenaPanel.getWidth() / 2 - 150, arenaPanel.getHeight() / 2 - 100, 300, 200);
+
+        JLabel defeatLabel = new JLabel("DEFEAT!");
+        defeatLabel.setFont(headerFont.deriveFont(32f));
+        defeatLabel.setForeground(Color.RED);
+        defeatLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel coinsLabel = new JLabel("Koin sekarang: " + parentUI.coins);
+        coinsLabel.setFont(headerFont.deriveFont(20f));
+        coinsLabel.setForeground(Color.WHITE);
+        coinsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel plusLabel = new JLabel("(+0 koin)");
+        plusLabel.setFont(headerFont.deriveFont(18f));
+        plusLabel.setForeground(Color.GRAY);
+        plusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        defeatPanel.add(Box.createVerticalGlue());
+        defeatPanel.add(defeatLabel);
+        defeatPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+        defeatPanel.add(coinsLabel);
+        defeatPanel.add(plusLabel);
+        defeatPanel.add(Box.createVerticalGlue());
+
+        defeatPanel.setOpaque(true);
+        defeatPanel.setBorder(BorderFactory.createLineBorder(Color.RED, 3));
+        defeatPanel.setVisible(true);
+
+        arenaPanel.add(defeatPanel, 0);
+        arenaPanel.repaint();
     }
 }
