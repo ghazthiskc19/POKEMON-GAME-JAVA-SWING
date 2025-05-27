@@ -11,6 +11,8 @@ import java.util.Random;
 import javax.swing.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.RescaleOp;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 public class MainUI {
     public static void main(String[] args) {
@@ -205,6 +207,23 @@ class StartMenuUI extends JFrame {
         buttonGroup.add(exitButton);
 
         String clickSfxPath = "./Assets/Sound/SFX/Button - Sound effect.wav";
+
+        MouseAdapter buttonHover = new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                JButton btn = (JButton) e.getSource();
+                btn.setForeground(Color.white);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                JButton btn = (JButton) e.getSource();
+                btn.setForeground(textColor);
+            }
+        };
+        for (JButton btn : buttons) {
+            btn.addMouseListener(buttonHover);
+        }
 
         // Set ActionListener
         startButton.addActionListener(e -> {
@@ -498,6 +517,7 @@ class StartMenuUI extends JFrame {
     }
 
     private void setPokemonButton(JPanel pokemonButton, JPanel pokemonImage) {
+        String clickSfxPath = "./Assets/Sound/SFX/Button - Sound effect.wav";
         int i = 1;
         for (Pokemon pokemon : allPokemons) {
             if (i % 3 == 1) {
@@ -511,6 +531,7 @@ class StartMenuUI extends JFrame {
                 btn.setPreferredSize(new Dimension(175, 175));
                 pokemonButton.add(btn);
                 btn.addActionListener(e -> {
+                    SFXPlayer.playSound(clickSfxPath);
                     setPokemonImage(pokemonImage, pokemon);
                     playerPokemon = pokemon;
                 });

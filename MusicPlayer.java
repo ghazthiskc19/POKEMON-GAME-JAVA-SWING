@@ -10,6 +10,7 @@ public class MusicPlayer {
         ARENA
     }
 
+    private int currentVolumePercent = 70; // Default volume percent
     private Clip currentClip;
     private Thread musicThread;
     private volatile boolean isPlaying = false;
@@ -69,7 +70,9 @@ public class MusicPlayer {
                 AudioInputStream audioStream = AudioSystem.getAudioInputStream(audioFile);
                 currentClip = AudioSystem.getClip();
                 currentClip.open(audioStream);
+                setVolumePercent(currentVolumePercent);
                 currentClip.loop(Clip.LOOP_CONTINUOUSLY); // Loop musik
+                //setVolume(currentVolumePercent); // Setel volume awal
                 currentClip.start();
 
                 while (isPlaying) {
@@ -134,7 +137,7 @@ public class MusicPlayer {
     }
 
     public void setVolumePercent(int percent) {
-        
+        currentVolumePercent = percent; // Simpan volume saat ini
         if (currentClip != null) {
             FloatControl gainControl = (FloatControl) currentClip.getControl(FloatControl.Type.MASTER_GAIN);
             float min = gainControl.getMinimum();
@@ -168,7 +171,7 @@ public class MusicPlayer {
     }
 
     public int getVolumePercent() {
-        return 70;
+        return currentVolumePercent;
     }
 
     public boolean isVolumeControlSupported() {
