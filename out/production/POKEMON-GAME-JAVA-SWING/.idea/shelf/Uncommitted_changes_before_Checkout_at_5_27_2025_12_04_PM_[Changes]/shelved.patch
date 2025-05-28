@@ -1,0 +1,23 @@
+Index: PlayerData.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>// PlayerData.java (File baru)\r\nimport java.util.prefs.Preferences;\r\n\r\npublic class PlayerData {\r\n    private static final String PLAYER_NAME_KEY = \"player_name\";\r\n    private static Preferences prefs = Preferences.userNodeForPackage(PlayerData.class);\r\n\r\n    public static void savePlayerName(String name) {\r\n        prefs.put(PLAYER_NAME_KEY, name);\r\n    }\r\n\r\n    public static String getPlayerName() {\r\n        return prefs.get(PLAYER_NAME_KEY, null);\r\n    }\r\n\r\n    public static boolean hasPlayerName() {\r\n        return getPlayerName() != null;\r\n    }\r\n}
+===================================================================
+diff --git a/PlayerData.java b/PlayerData.java
+--- a/PlayerData.java	(revision 1bd8b5145d8efa880410d819e3b66da973d2120b)
++++ b/PlayerData.java	(date 1748278214734)
+@@ -1,4 +1,3 @@
+-// PlayerData.java (File baru)
+ import java.util.prefs.Preferences;
+ 
+ public class PlayerData {
+@@ -16,4 +15,8 @@
+     public static boolean hasPlayerName() {
+         return getPlayerName() != null;
+     }
++
++    public static void clearPlayerName() {
++        prefs.remove(PLAYER_NAME_KEY);
++    }
+ }
+\ No newline at end of file
