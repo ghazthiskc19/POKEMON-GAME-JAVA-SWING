@@ -8,10 +8,13 @@ public class PlayerData {
     private static final String COINS_KEY = "player_coins";
     private static final String OWNED_POKEMON_KEY = "owned_pokemon";
     private static final String CURRENT_POKEMON_KEY = "current_pokemon";
+    private static final String MUSIC_VOLUME_KEY = "music_volume";
+    private static final String SFX_VOLUME_KEY = "sfx_volume";
     private static Preferences prefs = Preferences.userNodeForPackage(PlayerData.class);
 
     // Default coins jika belum pernah diset
     private static final int DEFAULT_COINS = 100;
+    private static final int DEFAULT_VOLUME = 70;
 
     public static void savePlayerName(String name) {
         prefs.put(PLAYER_NAME_KEY, name);
@@ -74,5 +77,22 @@ public class PlayerData {
     public static void clearPokemonData() {
         prefs.remove(OWNED_POKEMON_KEY);
         prefs.remove(CURRENT_POKEMON_KEY);
+    }
+
+    // Volume Settings
+    public static void saveMusicVolume(int volume) {
+        prefs.putInt(MUSIC_VOLUME_KEY, volume);
+    }
+
+    public static int getMusicVolume() {
+        return prefs.getInt(MUSIC_VOLUME_KEY, DEFAULT_VOLUME);
+    }
+
+    public static void saveSFXVolume(int volume) {
+        prefs.putInt(SFX_VOLUME_KEY, volume);
+    }
+
+    public static int getSFXVolume() {
+        return prefs.getInt(SFX_VOLUME_KEY, DEFAULT_VOLUME);
     }
 }

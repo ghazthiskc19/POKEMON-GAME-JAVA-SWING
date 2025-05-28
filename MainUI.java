@@ -13,6 +13,8 @@ import java.awt.image.BufferedImage;
 import java.awt.image.RescaleOp;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.Map;
+import java.util.HashMap;
 
 public class MainUI {
     public static void main(String[] args) {
@@ -104,8 +106,7 @@ class StartMenuUI extends JFrame {
     Color textColor2 = new Color(255, 255, 255);
     Color backgroundColor = new Color(181, 163, 91);
     Font headerFont;
-    Font paragraphFont;
-    int coins = 0; // jumlah koin pemain
+    int coins = PlayerData.getCoins(); // Initialize coins from PlayerData
     JLabel currentMoney; // label untuk menampilkan koin
     int ownedPokemonCount = 0; // jumlah pokemon yang dimiliki
     JLabel currentCountPokemon; // label untuk menampilkan jumlah pokemon
@@ -162,10 +163,8 @@ class StartMenuUI extends JFrame {
             File fontFile1 = new File("Assets/Font/Jersey10-Regular.ttf");
             File fontFile2 = new File("Assets/Font/PixelifySans-Medium.ttf");
             headerFont = Font.createFont(Font.TRUETYPE_FONT, fontFile1);
-            paragraphFont = Font.createFont(Font.TRUETYPE_FONT, fontFile2);
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
             ge.registerFont(headerFont);
-            ge.registerFont(paragraphFont);
         } catch (IOException | java.awt.FontFormatException e) {
             e.printStackTrace();
         }
@@ -182,10 +181,8 @@ class StartMenuUI extends JFrame {
         settingMenuPanel = new DarkBackgroundPanel("./Assets/bg-start.jpeg");
         mainMenuPanel = new BackgroundPanel("./Assets/bg-main.jpg");
         pokemonSelectionPanel = new BackgroundPanel("./Assets/bg-selection.jpg");
-        // pokemonSelectionPanel = new JPanel();
-        pokemonSelectionPanel.setBackground(Color.RED);
         arenaPanel = new BackgroundPanel("./Assets/bg-selection.jpg");
-        pokemonShopPanel = new JPanel();
+        pokemonShopPanel = new BackgroundPanel("./Assets/forest.jpg");
 
         wrapperPanel.add(startMenuPanel, "StartMenu");
         wrapperPanel.add(settingMenuPanel, "SettingMenu");
@@ -304,6 +301,19 @@ class StartMenuUI extends JFrame {
 
         mainMenuPanel.add(left);
         mainMenuPanel.add(right);
+
+        // Add a listener to refresh Pokemon selection when entering arena
+        for (Component comp : left.getComponents()) {
+            if (comp instanceof JButton) {
+                JButton button = (JButton) comp;
+                if (button.getText().equals("Let's Fight")) {
+                    button.addActionListener(e -> {
+                        // Refresh Pokemon selection panel before showing it
+                        refreshPokemonSelectionPanel();
+                    });
+                }
+            }
+        }
     }
 
     private void setNameInputPanel() {
@@ -327,7 +337,7 @@ class StartMenuUI extends JFrame {
         JTextField nameField = new JTextField(15);
         nameField.setMaximumSize(new Dimension(300, 30));
         nameField.setAlignmentX(Component.CENTER_ALIGNMENT);
-        nameField.setFont(paragraphFont.deriveFont(24f));
+        nameField.setFont(headerFont.deriveFont(24f));
         nameInputPanel.add(nameField);
 
         // Spacer antara textfield dan button
@@ -399,7 +409,7 @@ class StartMenuUI extends JFrame {
         String savedName = PlayerData.getPlayerName();
         JLabel playerName1 = new JLabel("Halo, " + (savedName != null ? savedName : "Trainer"));
         JLabel playerName2 = new JLabel("Siap bertarung?");
-        currentMoney = new JLabel("Uang yang dimiliki : " + coins + " koin");
+        currentMoney = new JLabel("Uang yang dimiliki : " + PlayerData.getCoins() + " koin");
         currentCountPokemon = new JLabel("Jumlah Pokemon yang dimiliki : " + ownedPokemonCount);
         JButton enterArena = new JButton("Let's Fight");
         JButton enterShop = new JButton("Shop");
@@ -617,13 +627,38 @@ class StartMenuUI extends JFrame {
     private ArrayList<JButton> pokemonButtons = new ArrayList<>(); // Tambahkan ini di class
 
     private void setPokemonButton(JPanel pokemonButton, JPanel pokemonImage) {
-        pokemonButtons.clear(); // reset jika panel di-refresh
+        pokemonButtons.clear();
         String clickSfxPath = "./Assets/Sound/SFX/Button - Sound effect.wav";
 
         // Load owned Pokemon from PlayerData
         List<String> ownedPokemonNames = PlayerData.getOwnedPokemon();
 
-        // First time playing - show all Pokemon
+        // If we have saved Pokemon, show those as buttons
+        for (Pokemon pokemon : allPokemons) {
+            if (ownedPokemonNames.contains(pokemon.getName())) {
+                JButton btn = new JButton();
+                ImageIcon icon = new ImageIcon(pokemon.getFrontGifPath());
+                btn.setIcon(icon);
+                btn.setFocusable(false);
+                btn.setContentAreaFilled(false);
+                btn.setBorderPainted(false);
+                btn.setOpaque(false);
+                btn.setPreferredSize(new Dimension(175, 175));
+                pokemonButton.add(btn);
+                pokemonButtons.add(btn);
+
+                btn.addActionListener(e -> {
+                    SFXPlayer.playSound(clickSfxPath);
+                    setPokemonImage(pokemonImage, pokemon);
+                    playerPokemon = pokemon;
+                    if (fightButton != null)
+                        fightButton.setEnabled(true);
+                });
+                availablePokemon.add(pokemon);
+            }
+        }
+
+        // If no Pokemon are owned, show all basic Pokemon
         if (ownedPokemonNames.isEmpty()) {
             int i = 1;
             for (Pokemon pokemon : allPokemons) {
@@ -650,7 +685,6 @@ class StartMenuUI extends JFrame {
                         if (playerPokemon == null) {
                             ownedPokemonCount++;
                             updateOwnedPokemonLabel();
-                            // Save the selected Pokemon
                             List<String> newOwnedPokemon = new ArrayList<>();
                             newOwnedPokemon.add(pokemon.getName());
                             PlayerData.saveOwnedPokemon(newOwnedPokemon);
@@ -666,31 +700,6 @@ class StartMenuUI extends JFrame {
                     availablePokemon.add(pokemon);
                 }
                 i++;
-            }
-        } else {
-            // If we have saved Pokemon, only show those as buttons
-            for (Pokemon pokemon : allPokemons) {
-                if (ownedPokemonNames.contains(pokemon.getName())) {
-                    JButton btn = new JButton();
-                    ImageIcon icon = new ImageIcon(pokemon.getFrontGifPath());
-                    btn.setIcon(icon);
-                    btn.setFocusable(false);
-                    btn.setContentAreaFilled(false);
-                    btn.setBorderPainted(false);
-                    btn.setOpaque(false);
-                    btn.setPreferredSize(new Dimension(175, 175));
-                    pokemonButton.add(btn);
-                    pokemonButtons.add(btn);
-
-                    btn.addActionListener(e -> {
-                        SFXPlayer.playSound(clickSfxPath);
-                        setPokemonImage(pokemonImage, pokemon);
-                        playerPokemon = pokemon;
-                        if (fightButton != null)
-                            fightButton.setEnabled(true);
-                    });
-                    availablePokemon.add(pokemon);
-                }
             }
         }
     }
@@ -746,21 +755,51 @@ class StartMenuUI extends JFrame {
     }
 
     private void setArenaPanel() {
-        Random rand = new Random();
-        // Cari kandidat musuh yang berbeda dengan playerPokemon
-        ArrayList<Pokemon> enemyCandidates = new ArrayList<>();
-        for (Pokemon p : allPokemons) { // Use allPokemons instead of availablePokemon
-            if (p != playerPokemon) { // Bandingkan referensi objek
-                enemyCandidates.add(p);
+        // Get available Pokemon from shop
+        List<Pokemon> availableEnemies = new ArrayList<>();
+        List<String> currentOwnedNames = PlayerData.getOwnedPokemon();
+        Random rand = new Random(); // Add Random variable
+
+        // Basic Pokemon that can be enemies
+        Pokemon[] basicPokemon = {
+                allPokemons.get(0), // Pichu
+                allPokemons.get(3), // Squirtle
+                allPokemons.get(6), // Charmander
+                allPokemons.get(9) // Ralts
+        };
+
+        // Add basic Pokemon and their evolutions to available enemies
+        for (Pokemon basic : basicPokemon) {
+            availableEnemies.add(basic);
+            Pokemon nextEvo = PokemonFactory.getNextEvolution(basic);
+            if (nextEvo != null) {
+                availableEnemies.add(nextEvo);
             }
         }
-        if (enemyCandidates.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Tidak ada musuh yang tersedia selain Pokémon kamu sendiri!", "Error",
-                    JOptionPane.ERROR_MESSAGE);
-            cardLayout.show(wrapperPanel, "PokemonSelection");
-            return;
+
+        // Filter out player's Pokemon and its evolution
+        availableEnemies.removeIf(p -> p.getName().equals(playerPokemon.getName()));
+        Pokemon playerEvo = PokemonFactory.getNextEvolution(playerPokemon);
+        if (playerEvo != null) {
+            availableEnemies.removeIf(p -> p.getName().equals(playerEvo.getName()));
         }
-        enemyPokemon = enemyCandidates.get(rand.nextInt(enemyCandidates.size()));
+
+        // Randomly select enemy from available Pokemon
+        if (!availableEnemies.isEmpty()) {
+            enemyPokemon = availableEnemies.get(rand.nextInt(availableEnemies.size()));
+        } else {
+            // Fallback to random selection if no suitable enemies found
+            ArrayList<Pokemon> enemyCandidates = new ArrayList<>();
+            for (Pokemon p : allPokemons) {
+                if (p != playerPokemon) {
+                    enemyCandidates.add(p);
+                }
+            }
+            if (!enemyCandidates.isEmpty()) {
+                enemyPokemon = enemyCandidates.get(rand.nextInt(enemyCandidates.size()));
+            }
+        }
+
         new BattleUI(playerPokemon, enemyPokemon, arenaPanel, headerFont, cardLayout, wrapperPanel, musicPlayer,
                 fadeEffectPanel, this);
     }
@@ -775,65 +814,105 @@ class StartMenuUI extends JFrame {
             settingMenuPanel.setBackground(backgroundColor);
         }
 
-        JLabel titeLable = new JLabel("Pengaturan volume");
-        titeLable.setFont(headerFont.deriveFont(40f));
-        titeLable.setForeground(textColor2);
-        titeLable.setHorizontalAlignment(SwingConstants.CENTER);
-        titeLable.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel titleLabel = new JLabel("Pengaturan volume");
+        titleLabel.setFont(headerFont.deriveFont(40f));
+        titleLabel.setForeground(textColor2);
+        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.gridwidth = 2;
         gbc.insets = new Insets(20, 20, 40, 20);
         gbc.anchor = GridBagConstraints.CENTER;
-        settingMenuPanel.add(titeLable, gbc);
+        settingMenuPanel.add(titleLabel, gbc);
 
-        int initialVolume = 70;
-        if (musicPlayer != null && musicPlayer.isVolumeControlSupported()) {
-            initialVolume = musicPlayer.getVolumePercent();
-        }
-
-        JSlider volumeSlider = new JSlider(0, 100, initialVolume);
-        volumeSlider.setMajorTickSpacing(20);
-        volumeSlider.setMinorTickSpacing(5);
-        volumeSlider.setPaintTicks(true);
-        volumeSlider.setPaintLabels(true);
-        volumeSlider.setOpaque(false);
-        volumeSlider.setForeground(textColor2);
-        volumeSlider.setPreferredSize(new Dimension(350, 60));
-        volumeSlider.setAlignmentX(Component.CENTER_ALIGNMENT);
+        // Music Volume Slider
+        JLabel musicLabel = new JLabel("Music Volume");
+        musicLabel.setFont(headerFont.deriveFont(20f));
+        musicLabel.setForeground(textColor2);
+        musicLabel.setHorizontalAlignment(SwingConstants.CENTER);
         gbc.gridy = 1;
-        gbc.gridx = 0;
-        gbc.gridwidth = 2;
-        gbc.insets = new Insets(0, 20, 20, 20);
-        settingMenuPanel.add(volumeSlider, gbc);
+        gbc.insets = new Insets(0, 20, 10, 20);
+        settingMenuPanel.add(musicLabel, gbc);
 
-        JLabel volumeLabel = new JLabel("Volume: " + initialVolume + "%");
-        volumeLabel.setFont(headerFont.deriveFont(20f));
-        volumeLabel.setForeground(textColor2);
-        volumeLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        volumeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        int initialMusicVolume = PlayerData.getMusicVolume();
+        JSlider musicSlider = new JSlider(0, 100, initialMusicVolume);
+        musicSlider.setMajorTickSpacing(20);
+        musicSlider.setMinorTickSpacing(5);
+        musicSlider.setPaintTicks(true);
+        musicSlider.setPaintLabels(true);
+        musicSlider.setOpaque(false);
+        musicSlider.setForeground(textColor2);
+        musicSlider.setPreferredSize(new Dimension(350, 60));
         gbc.gridy = 2;
-        gbc.insets = new Insets(0, 20, 20, 20);
-        settingMenuPanel.add(volumeLabel, gbc);
+        settingMenuPanel.add(musicSlider, gbc);
 
+        JLabel musicVolumeLabel = new JLabel("Volume: " + initialMusicVolume + "%");
+        musicVolumeLabel.setFont(headerFont.deriveFont(16f));
+        musicVolumeLabel.setForeground(textColor2);
+        musicVolumeLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        gbc.gridy = 3;
+        gbc.insets = new Insets(0, 20, 30, 20);
+        settingMenuPanel.add(musicVolumeLabel, gbc);
+
+        // SFX Volume Slider
+        JLabel sfxLabel = new JLabel("SFX Volume");
+        sfxLabel.setFont(headerFont.deriveFont(20f));
+        sfxLabel.setForeground(textColor2);
+        sfxLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        gbc.gridy = 4;
+        gbc.insets = new Insets(0, 20, 10, 20);
+        settingMenuPanel.add(sfxLabel, gbc);
+
+        int initialSFXVolume = PlayerData.getSFXVolume();
+        JSlider sfxSlider = new JSlider(0, 100, initialSFXVolume);
+        sfxSlider.setMajorTickSpacing(20);
+        sfxSlider.setMinorTickSpacing(5);
+        sfxSlider.setPaintTicks(true);
+        sfxSlider.setPaintLabels(true);
+        sfxSlider.setOpaque(false);
+        sfxSlider.setForeground(textColor2);
+        sfxSlider.setPreferredSize(new Dimension(350, 60));
+        gbc.gridy = 5;
+        settingMenuPanel.add(sfxSlider, gbc);
+
+        JLabel sfxVolumeLabel = new JLabel("Volume: " + initialSFXVolume + "%");
+        sfxVolumeLabel.setFont(headerFont.deriveFont(16f));
+        sfxVolumeLabel.setForeground(textColor2);
+        sfxVolumeLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        gbc.gridy = 6;
+        gbc.insets = new Insets(0, 20, 30, 20);
+        settingMenuPanel.add(sfxVolumeLabel, gbc);
+
+        // Back Button
         JButton backButton = new JButton("Kembali");
         backButton.setFont(headerFont.deriveFont(24f));
         backButton.setContentAreaFilled(false);
         backButton.setOpaque(false);
         backButton.setBorderPainted(true);
         backButton.setForeground(textColor2);
-        gbc.gridy = 3;
+        gbc.gridy = 7;
         gbc.gridwidth = 1;
         gbc.gridx = 0;
         gbc.insets = new Insets(30, 20, 20, 20);
         settingMenuPanel.add(backButton, gbc);
 
-        volumeSlider.addChangeListener(e -> {
-            int value = volumeSlider.getValue();
-            volumeLabel.setText("Volume: " + value + "%");
+        // Music Volume Slider Listener
+        musicSlider.addChangeListener(e -> {
+            int value = musicSlider.getValue();
+            musicVolumeLabel.setText("Volume: " + value + "%");
             if (musicPlayer != null && musicPlayer.isVolumeControlSupported()) {
                 musicPlayer.setVolumePercent(value);
+                PlayerData.saveMusicVolume(value);
             }
+        });
+
+        // SFX Volume Slider Listener
+        sfxSlider.addChangeListener(e -> {
+            int value = sfxSlider.getValue();
+            sfxVolumeLabel.setText("Volume: " + value + "%");
+            SFXPlayer.setVolume(value);
+            PlayerData.saveSFXVolume(value);
         });
 
         backButton.addActionListener(e -> {
@@ -852,11 +931,12 @@ class StartMenuUI extends JFrame {
         pokemonShopPanel.removeAll();
         pokemonShopPanel.setLayout(new BoxLayout(pokemonShopPanel, BoxLayout.Y_AXIS));
         pokemonShopPanel.setBackground(new Color(240, 240, 240));
+        pokemonShopPanel.setOpaque(false);
 
         // Panel header koin
         JPanel coinPanel = new JPanel();
         coinPanel.setOpaque(false);
-        JLabel coinLabel = new JLabel("Koin Anda: " + PlayerData.getCoins());
+        JLabel coinLabel = new JLabel("Koin Anda: " + coins);
         coinLabel.setFont(headerFont.deriveFont(28f));
         coinLabel.setForeground(new Color(30, 30, 30));
         coinPanel.add(coinLabel);
@@ -874,29 +954,53 @@ class StartMenuUI extends JFrame {
         List<Pokemon> availableForPurchase = new ArrayList<>();
         List<String> currentOwnedNames = PlayerData.getOwnedPokemon();
 
-        // Basic Pokemon yang bisa dibeli
-        Pokemon[] basicPokemon = {
-                allPokemons.get(0), // Pichu
-                allPokemons.get(3), // Squirtle
-                allPokemons.get(6), // Charmander
-                allPokemons.get(9) // Ralts
+        // Define evolution chains
+        String[][] evolutionChains = {
+                { "Pichu", "Pikachu", "Raichu" },
+                { "Squirtle", "Wartortle", "Blastoise" },
+                { "Charmander", "Charmeleon", "Charizard" },
+                { "Ralts", "Kirlia", "Gardevoir" }
         };
 
-        for (Pokemon basic : basicPokemon) {
-            if (currentOwnedNames.contains(basic.getName())) {
-                // Jika memiliki basic form, cek evolusi berikutnya
-                Pokemon nextEvo = PokemonFactory.getNextEvolution(basic);
-                if (nextEvo != null && !currentOwnedNames.contains(nextEvo.getName())) {
-                    availableForPurchase.add(nextEvo);
+        // Check each evolution chain
+        for (String[] chain : evolutionChains) {
+            boolean foundNextEvolution = false;
+
+            // Check if we have any Pokemon in this chain
+            for (int i = 0; i < chain.length; i++) {
+                String pokemonName = chain[i];
+
+                // If we have this Pokemon and there's a next evolution
+                if (currentOwnedNames.contains(pokemonName) && i < chain.length - 1) {
+                    String nextEvolution = chain[i + 1];
+
+                    // If we don't have the next evolution, add it to available Pokemon
+                    if (!currentOwnedNames.contains(nextEvolution)) {
+                        for (Pokemon p : allPokemons) {
+                            if (p.getName().equals(nextEvolution)) {
+                                availableForPurchase.add(p);
+                                foundNextEvolution = true;
+                                break;
+                            }
+                        }
+                    }
                 }
-            } else {
-                // Jika tidak memiliki basic form, tampilkan basic form
-                availableForPurchase.add(basic);
+            }
+
+            // If we don't have any Pokemon in this chain, add the basic form
+            if (!foundNextEvolution) {
+                for (Pokemon p : allPokemons) {
+                    if (p.getName().equals(chain[0])) {
+                        availableForPurchase.add(p);
+                        break;
+                    }
+                }
             }
         }
 
         for (Pokemon pokemon : availableForPurchase) {
             JPanel pokemonCard = new JPanel();
+            pokemonCard.setOpaque(false);
             pokemonCard.setLayout(new BoxLayout(pokemonCard, BoxLayout.Y_AXIS));
             pokemonCard.setBackground(new Color(255, 255, 255, 200));
             pokemonCard.setBorder(BorderFactory.createLineBorder(Color.GRAY, 2, true));
@@ -935,16 +1039,36 @@ class StartMenuUI extends JFrame {
                     !pokemon.getName().equals("Charmander") &&
                     !pokemon.getName().equals("Ralts");
 
-            if (isEvolution) {
-                Pokemon prevEvo = null;
-                for (int i = 1; i < allPokemons.size(); i++) {
-                    if (allPokemons.get(i).getName().equals(pokemon.getName())) {
-                        prevEvo = allPokemons.get(i - 1);
+            // Determine price based on evolution stage
+            int cost;
+            if (!isEvolution) {
+                cost = 200; // Basic form
+            } else {
+                // Check if it's the final evolution
+                boolean isFinalEvolution = false;
+                for (String[] chain : evolutionChains) {
+                    if (chain[chain.length - 1].equals(pokemon.getName())) {
+                        isFinalEvolution = true;
                         break;
                     }
                 }
-                if (prevEvo != null) {
-                    JLabel reqLabel = new JLabel("Requires: " + prevEvo.getName());
+                cost = isFinalEvolution ? 500 : 300; // 500 for final evolution, 300 for middle evolution
+            }
+
+            if (isEvolution) {
+                // Find the previous evolution
+                String prevEvoName = null;
+                for (String[] chain : evolutionChains) {
+                    for (int i = 1; i < chain.length; i++) {
+                        if (chain[i].equals(pokemon.getName())) {
+                            prevEvoName = chain[i - 1];
+                            break;
+                        }
+                    }
+                }
+
+                if (prevEvoName != null) {
+                    JLabel reqLabel = new JLabel("Requires: " + prevEvoName);
                     reqLabel.setFont(headerFont.deriveFont(14f));
                     reqLabel.setForeground(new Color(100, 100, 100));
                     reqLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -953,29 +1077,38 @@ class StartMenuUI extends JFrame {
             }
 
             // Buy Button
-            int cost = isEvolution ? 75 : 50;
             JButton buyButton = new JButton("Buy (" + cost + " coins)");
             buyButton.setFont(headerFont.deriveFont(16f));
             buyButton.setAlignmentX(Component.CENTER_ALIGNMENT);
             buyButton.setPreferredSize(new Dimension(200, 40));
             buyButton.addActionListener(e -> {
-                if (PlayerData.getCoins() >= cost) {
+                if (coins >= cost) {
+                    coins -= cost;
                     PlayerData.spendCoins(cost);
+                    updateCoinLabel();
 
                     // Jika ini evolusi, hapus Pokemon sebelumnya
                     if (isEvolution) {
-                        Pokemon prevEvo = null;
-                        for (int i = 1; i < allPokemons.size(); i++) {
-                            if (allPokemons.get(i).getName().equals(pokemon.getName())) {
-                                prevEvo = allPokemons.get(i - 1);
-                                break;
+                        String prevEvoName = null;
+                        for (String[] chain : evolutionChains) {
+                            for (int i = 1; i < chain.length; i++) {
+                                if (chain[i].equals(pokemon.getName())) {
+                                    prevEvoName = chain[i - 1];
+                                    break;
+                                }
                             }
                         }
-                        if (prevEvo != null) {
-                            ownedPokemons.remove(prevEvo);
-                            List<String> updatedOwnedNames = new ArrayList<>(PlayerData.getOwnedPokemon());
-                            updatedOwnedNames.remove(prevEvo.getName());
-                            PlayerData.saveOwnedPokemon(updatedOwnedNames);
+
+                        if (prevEvoName != null) {
+                            for (Pokemon p : allPokemons) {
+                                if (p.getName().equals(prevEvoName)) {
+                                    ownedPokemons.remove(p);
+                                    List<String> updatedOwnedNames = new ArrayList<>(PlayerData.getOwnedPokemon());
+                                    updatedOwnedNames.remove(prevEvoName);
+                                    PlayerData.saveOwnedPokemon(updatedOwnedNames);
+                                    break;
+                                }
+                            }
                         }
                     }
 
@@ -1085,7 +1218,7 @@ class StartMenuUI extends JFrame {
 
     private void updateCoinLabel() {
         if (currentMoney != null) {
-            currentMoney.setText("Uang yang dimiliki : " + coins + " koin");
+            currentMoney.setText("Uang yang dimiliki : " + PlayerData.getCoins() + " koin");
         }
     }
 
@@ -1097,6 +1230,7 @@ class StartMenuUI extends JFrame {
 
     public void addCoins(int amount) {
         coins += amount;
+        PlayerData.addCoins(amount); // Save to PlayerData
         updateCoinLabel();
     }
 
@@ -1129,6 +1263,56 @@ class StartMenuUI extends JFrame {
             }
         }
     }
+
+    private void refreshPokemonSelectionPanel() {
+        // Clear existing Pokemon buttons
+        pokemonButtons.clear();
+        availablePokemon.clear();
+
+        // Get current owned Pokemon from PlayerData
+        List<String> ownedPokemonNames = PlayerData.getOwnedPokemon();
+
+        // Update owned Pokemon count
+        ownedPokemonCount = ownedPokemonNames.size();
+        updateOwnedPokemonLabel();
+
+        // Clear and reset the Pokemon selection panel
+        pokemonSelectionPanel.removeAll();
+        pokemonSelectionPanel.setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.weightx = 1;
+
+        JPanel pokemonImage = new JPanel();
+        JPanel pokemonButton = new JPanel();
+        JPanel playExitButton = new JPanel();
+        pokemonImage.setBackground(new Color(0, 0, 0, 127));
+        pokemonButton.setOpaque(false);
+        playExitButton.setOpaque(false);
+
+        // Panel 1: Gambar (50%)
+        gbc.gridy = 0;
+        gbc.weighty = 0.5;
+        pokemonSelectionPanel.add(pokemonImage, gbc);
+
+        // Panel 2: Tombol Pokemon (30%)
+        gbc.gridy = 1;
+        gbc.weighty = 0.3;
+        pokemonSelectionPanel.add(pokemonButton, gbc);
+
+        // Panel 3: Play & Exit (20%)
+        gbc.gridy = 2;
+        gbc.weighty = 0.2;
+        pokemonSelectionPanel.add(playExitButton, gbc);
+
+        // Set up the Pokemon buttons with current owned Pokemon
+        setPokemonButton(pokemonButton, pokemonImage);
+        setPlayExitButton(playExitButton);
+
+        // Refresh the panel
+        pokemonSelectionPanel.revalidate();
+        pokemonSelectionPanel.repaint();
+    }
 }
 
 class BattleUI {
@@ -1143,13 +1327,17 @@ class BattleUI {
     private Font headerFont;
     private JLabel playerHPLabel;
     private JLabel enemyHPLabel;
-    private JButton backToMenuButton; // Tombol ini sudah ada dari saran sebelumnya
-    private JButton restartGameButton; // Tombol baru untuk "Main Lagi"
+    private JProgressBar playerHealthBar;
+    private JProgressBar enemyHealthBar;
+    private JButton backToMenuButton;
+    private JButton restartGameButton;
+    private Map<Move, Integer> moveCooldowns; // Track cooldowns for each move
+    private int turnCount; // Track number of turns
+    private Map<Move, JLabel> moveCooldownLabels; // Add this field
 
     private CardLayout cardLayoutInstance;
     private JPanel wrapperPanelInstance;
     private FadeEffectPanel fadeEffectPanel;
-
     private StartMenuUI parentUI;
 
     public BattleUI(Pokemon playerPokemon, Pokemon enemyPokemon, JPanel arenaPanel, Font headerFont,
@@ -1159,13 +1347,21 @@ class BattleUI {
         this.enemyPokemon = enemyPokemon;
         this.arenaPanel = arenaPanel;
         this.headerFont = headerFont;
-        this.cardLayoutInstance = cardLayout; // Penting
-        this.wrapperPanelInstance = wrapperPanel; // Penting
+        this.cardLayoutInstance = cardLayout;
+        this.wrapperPanelInstance = wrapperPanel;
         this.musicPlayer = musicPlayer;
         this.fadeEffectPanel = fadeEffectPanel;
-        this.playerPokemon.resetHp(); // Pastikan method resetHp() ada di Pokemon.java
-        this.enemyPokemon.resetHp(); // Pastikan method resetHp() ada di Pokemon.java
+        this.playerPokemon.resetHp();
+        this.enemyPokemon.resetHp();
         this.parentUI = parentUI;
+        this.moveCooldowns = new HashMap<>();
+        this.moveCooldownLabels = new HashMap<>();
+        this.turnCount = 0;
+
+        // Initialize cooldowns for all moves
+        for (Move move : playerPokemon.getMoves()) {
+            moveCooldowns.put(move, 0);
+        }
 
         initializeUI();
     }
@@ -1196,7 +1392,7 @@ class BattleUI {
         if (headerFont != null)
             restartGameButton.setFont(headerFont.deriveFont(16f));
         restartGameButton.setBounds(backToMenuButton.getX(),
-                backToMenuButton.getY() + backToMenuButton.getHeight() + 10, 250, 40); // Y disesuaikan
+                backToMenuButton.getY() + backToMenuButton.getHeight() + 10, 250, 40);
         restartGameButton.setVisible(false);
         restartGameButton.addActionListener(e -> {
             if (cardLayoutInstance != null && wrapperPanelInstance != null) {
@@ -1215,6 +1411,7 @@ class BattleUI {
         });
         arenaPanel.add(restartGameButton);
         arenaPanel.add(backToMenuButton);
+
         // Player Pokemon GIF
         ImageIcon playerIcon = new ImageIcon(playerPokemon.getBackGifPath());
         playerLabel = new JLabel(playerIcon);
@@ -1227,19 +1424,35 @@ class BattleUI {
         enemyLabel.setBounds(500, 50, 200, 200);
         arenaPanel.add(enemyLabel);
 
-        // Player HP Label
+        // Player HP Label and Health Bar
         playerHPLabel = new JLabel();
-        playerHPLabel.setFont(headerFont.deriveFont(20f));
-        playerHPLabel.setForeground(Color.WHITE); // Warna teks HP
-        playerHPLabel.setBounds(75, 350, 200, 30);
+        playerHPLabel.setFont(headerFont.deriveFont(16f));
+        playerHPLabel.setForeground(Color.WHITE);
+        playerHPLabel.setBounds(75, 320, 200, 20);
         arenaPanel.add(playerHPLabel);
 
-        // Enemy HP Label
+        playerHealthBar = new JProgressBar(0, playerPokemon.getMaxHp());
+        playerHealthBar.setValue(playerPokemon.getCurrentHp());
+        playerHealthBar.setStringPainted(true);
+        playerHealthBar.setForeground(new Color(0, 255, 0)); // Green color for health
+        playerHealthBar.setBackground(new Color(100, 100, 100)); // Dark gray for background
+        playerHealthBar.setBounds(75, 340, 200, 20);
+        arenaPanel.add(playerHealthBar);
+
+        // Enemy HP Label and Health Bar
         enemyHPLabel = new JLabel();
-        enemyHPLabel.setFont(headerFont.deriveFont(20f));
-        enemyHPLabel.setForeground(Color.WHITE); // Warna teks HP
-        enemyHPLabel.setBounds(550, 50, 200, 30);
+        enemyHPLabel.setFont(headerFont.deriveFont(16f));
+        enemyHPLabel.setForeground(Color.WHITE);
+        enemyHPLabel.setBounds(550, 20, 200, 20);
         arenaPanel.add(enemyHPLabel);
+
+        enemyHealthBar = new JProgressBar(0, enemyPokemon.getMaxHp());
+        enemyHealthBar.setValue(enemyPokemon.getCurrentHp());
+        enemyHealthBar.setStringPainted(true);
+        enemyHealthBar.setForeground(new Color(0, 255, 0)); // Green color for health
+        enemyHealthBar.setBackground(new Color(100, 100, 100)); // Dark gray for background
+        enemyHealthBar.setBounds(550, 40, 200, 20);
+        arenaPanel.add(enemyHealthBar);
 
         updateHealthDisplay();
 
@@ -1248,21 +1461,38 @@ class BattleUI {
         statusLabel.setFont(headerFont.deriveFont(20f));
         statusLabel.setForeground(Color.WHITE);
         statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        statusLabel.setBounds(arenaPanel.getWidth() / 2 - 125, 10, 250, 30); // Tengah atas
+        statusLabel.setBounds(arenaPanel.getWidth() / 2 - 125, 10, 250, 30);
         arenaPanel.add(statusLabel);
 
-        // Moves Panel
+        // Moves Panel with cooldown labels
         movesPanel = new JPanel();
         movesPanel.setBounds(arenaPanel.getWidth() / 2 - 125, arenaPanel.getHeight() - 120, 250, 100);
         movesPanel.setLayout(new GridLayout(2, 2, 5, 5));
         movesPanel.setOpaque(false);
         arenaPanel.add(movesPanel);
 
+        // Create a panel for each move that contains both the cooldown label and button
         for (Move move : playerPokemon.getMoves()) {
+            JPanel movePanel = new JPanel();
+            movePanel.setLayout(new BoxLayout(movePanel, BoxLayout.Y_AXIS));
+            movePanel.setOpaque(false);
+
+            // Cooldown label
+            JLabel cooldownLabel = new JLabel("");
+            cooldownLabel.setFont(headerFont.deriveFont(14f));
+            cooldownLabel.setForeground(Color.WHITE);
+            cooldownLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            moveCooldownLabels.put(move, cooldownLabel);
+            movePanel.add(cooldownLabel);
+
+            // Move button
             JButton moveButton = new JButton(move.getName());
-            moveButton.setFont(headerFont.deriveFont(18f));
+            moveButton.setFont(headerFont.deriveFont(16f));
+            moveButton.setAlignmentX(Component.CENTER_ALIGNMENT);
             moveButton.addActionListener(e -> performPlayerMove(move));
-            movesPanel.add(moveButton);
+            movePanel.add(moveButton);
+
+            movesPanel.add(movePanel);
         }
 
         JLabel enemyPlace = getScaledImageLabel("./Assets/pixil-frame.png", 200, 200);
@@ -1277,54 +1507,130 @@ class BattleUI {
     }
 
     private void updateHealthDisplay() {
-        if (playerPokemon != null && playerHPLabel != null) {
+        if (playerPokemon != null && playerHPLabel != null && playerHealthBar != null) {
             playerHPLabel.setText(
                     playerPokemon.getName() + ": " + playerPokemon.getCurrentHp() + "/" + playerPokemon.getMaxHp());
+            playerHealthBar.setMaximum(playerPokemon.getMaxHp());
+            playerHealthBar.setValue(playerPokemon.getCurrentHp());
+
+            // Update health bar color based on percentage
+            int healthPercentage = (playerPokemon.getCurrentHp() * 100) / playerPokemon.getMaxHp();
+            if (healthPercentage > 50) {
+                playerHealthBar.setForeground(new Color(0, 255, 0)); // Green
+            } else if (healthPercentage > 25) {
+                playerHealthBar.setForeground(new Color(255, 255, 0)); // Yellow
+            } else {
+                playerHealthBar.setForeground(new Color(255, 0, 0)); // Red
+            }
         }
-        if (enemyPokemon != null && enemyHPLabel != null) {
+
+        if (enemyPokemon != null && enemyHPLabel != null && enemyHealthBar != null) {
             enemyHPLabel.setText(
                     enemyPokemon.getName() + ": " + enemyPokemon.getCurrentHp() + "/" + enemyPokemon.getMaxHp());
+            enemyHealthBar.setMaximum(enemyPokemon.getMaxHp());
+            enemyHealthBar.setValue(enemyPokemon.getCurrentHp());
+
+            // Update health bar color based on percentage
+            int healthPercentage = (enemyPokemon.getCurrentHp() * 100) / enemyPokemon.getMaxHp();
+            if (healthPercentage > 50) {
+                enemyHealthBar.setForeground(new Color(0, 255, 0)); // Green
+            } else if (healthPercentage > 25) {
+                enemyHealthBar.setForeground(new Color(255, 255, 0)); // Yellow
+            } else {
+                enemyHealthBar.setForeground(new Color(255, 0, 0)); // Red
+            }
+        }
+    }
+
+    private void updateMoveButtons() {
+        for (Component comp : movesPanel.getComponents()) {
+            if (comp instanceof JPanel) {
+                JPanel movePanel = (JPanel) comp;
+                JButton moveButton = null;
+                JLabel cooldownLabel = null;
+
+                // Find the button and label in the panel
+                for (Component c : movePanel.getComponents()) {
+                    if (c instanceof JButton) {
+                        moveButton = (JButton) c;
+                    } else if (c instanceof JLabel) {
+                        cooldownLabel = (JLabel) c;
+                    }
+                }
+
+                if (moveButton != null && cooldownLabel != null) {
+                    Move move = findMoveByName(moveButton.getText());
+                    if (move != null) {
+                        int cooldown = moveCooldowns.get(move);
+                        if (cooldown > 0) {
+                            moveButton.setEnabled(false);
+                            cooldownLabel.setText("Cooldown: " + cooldown + " turns");
+                            cooldownLabel.setForeground(Color.RED);
+                        } else {
+                            moveButton.setEnabled(true);
+                            cooldownLabel.setText("Ready!");
+                            cooldownLabel.setForeground(Color.GREEN);
+                        }
+                    }
+                }
+            }
         }
     }
 
     private void performPlayerMove(Move move) {
-        setMoveButtonsEnabled(false);
+        // Check if move is on cooldown
+        if (moveCooldowns.get(move) > 0) {
+            statusLabel.setText(move.getName() + " is on cooldown for " + moveCooldowns.get(move) + " more turns!");
+            return;
+        }
+
+        // Immediately disable ALL move buttons when a move is selected
+        disableAllMoveButtons();
         statusLabel.setText(playerPokemon.getName() + " used " + move.getName() + "!");
 
-        if (move.getSfxPath() != null && !move.getSfxPath().isEmpty()) {
-            SFXPlayer.playSound(move.getSfxPath()); // <-- PANGGIL SFX DI SINI
+        // Set cooldown based on move type
+        if (move.getType() == Type.HEAL || move.getType() == Type.BUFF) {
+            moveCooldowns.put(move, 3); // 3-turn cooldown for heal/buff
+        } else if (move.getPower() > 50) {
+            moveCooldowns.put(move, 2); // 2-turn cooldown for high-damage moves
         }
-        JLabel targetLabelForAnimation = enemyLabel; // Default untuk serangan
+
+        // Update move buttons to show cooldowns
+        updateMoveButtons();
+
+        if (move.getSfxPath() != null && !move.getSfxPath().isEmpty()) {
+            SFXPlayer.playSound(move.getSfxPath());
+        }
+
+        JLabel targetLabelForAnimation = enemyLabel;
         Pokemon defender = enemyPokemon;
         Pokemon attacker = playerPokemon;
 
         if (move.getType() == Type.HEAL || move.getType() == Type.BUFF) {
-            targetLabelForAnimation = playerLabel; // Animasi di dekat pengguna move
+            targetLabelForAnimation = playerLabel;
         }
 
         int animX = targetLabelForAnimation.getX();
         int animY = targetLabelForAnimation.getY();
 
         showMoveAnimation(move.getGifPath(), animX, animY, () -> {
-            boolean turnEnds = true; // Asumsi giliran berakhir setelah aksi
+            boolean turnEnds = true;
             if (move.getType() == Type.HEAL) {
                 attacker.heal(move.getPower());
                 statusLabel.setText(attacker.getName() + " healed itself for " + move.getPower() + " HP!");
                 updateHealthDisplay();
             } else if (move.getType() == Type.BUFF) {
-                if (move.getName().equalsIgnoreCase("Buff")) { // Asumsi "Buff" meningkatkan Attack
+                if (move.getName().equalsIgnoreCase("Buff")) {
                     attacker.increaseAttackBonus(move.getPower());
                     statusLabel.setText(attacker.getName() + "'s Attack rose by " + move.getPower() + "!");
-                } else if (move.getName().equalsIgnoreCase("Withdraw")) { // Contoh untuk Defense Buff
-                    // Jika "Withdraw" adalah Type.BUFF dan powernya untuk defense
+                } else if (move.getName().equalsIgnoreCase("Withdraw")) {
                     attacker.increaseDefenseBonus(move.getPower());
                     statusLabel.setText(attacker.getName() + "'s Defense rose by " + move.getPower() + "!");
                 } else {
-                    // Default buff (misalnya, jika ada move buff lain tanpa nama spesifik)
-                    attacker.increaseAttackBonus(move.getPower()); // Default ke attack
+                    attacker.increaseAttackBonus(move.getPower());
                     statusLabel.setText(attacker.getName() + " powered up!");
                 }
-            } else { // Ini adalah move serangan (damaging move)
+            } else {
                 int damage = Battle.calculateDamage(attacker, move, defender);
                 defender.takeDamage(damage);
                 statusLabel.setText(attacker.getName() + " dealt " + damage + " damage to " + defender.getName() + "!");
@@ -1332,14 +1638,12 @@ class BattleUI {
 
                 if (defender.isFainted()) {
                     statusLabel.setText(defender.getName() + " fainted! " + attacker.getName() + " wins!");
-                    setMoveButtonsEnabled(false);
+                    disableAllMoveButtons();
                     backToMenuButton.setVisible(true);
                     restartGameButton.setVisible(true);
                     if (defender == playerPokemon) {
-                        // Player kalah
                         showDefeatPanel(parentUI.coins);
                     } else {
-                        // Player menang
                         if (parentUI != null)
                             parentUI.addCoins(100);
                         showVictoryPanel(parentUI.coins - 1000, 100);
@@ -1348,33 +1652,74 @@ class BattleUI {
                 }
             }
 
-            if (turnEnds && !defender.isFainted()) { // Hanya lanjut ke giliran musuh jika battle belum berakhir
-                Timer enemyTurnTimer = new Timer(1500, ae -> performEnemyMove()); // Tambah delay sedikit
+            if (turnEnds && !defender.isFainted()) {
+                // Update cooldowns
+                for (Move m : moveCooldowns.keySet()) {
+                    if (moveCooldowns.get(m) > 0) {
+                        moveCooldowns.put(m, moveCooldowns.get(m) - 1);
+                    }
+                }
+                turnCount++;
+                updateMoveButtons();
+
+                // Enemy's turn
+                Timer enemyTurnTimer = new Timer(1500, ae -> performEnemyMove());
                 enemyTurnTimer.setRepeats(false);
                 enemyTurnTimer.start();
             }
         });
     }
 
+    private void disableAllMoveButtons() {
+        for (Component comp : movesPanel.getComponents()) {
+            if (comp instanceof JPanel) {
+                JPanel movePanel = (JPanel) comp;
+                for (Component c : movePanel.getComponents()) {
+                    if (c instanceof JButton) {
+                        c.setEnabled(false);
+                    }
+                }
+            }
+        }
+    }
+
+    private void enableAvailableMoveButtons() {
+        for (Component comp : movesPanel.getComponents()) {
+            if (comp instanceof JPanel) {
+                JPanel movePanel = (JPanel) comp;
+                for (Component c : movePanel.getComponents()) {
+                    if (c instanceof JButton) {
+                        JButton button = (JButton) c;
+                        Move move = findMoveByName(button.getText());
+                        if (move != null) {
+                            // Only enable if not on cooldown
+                            button.setEnabled(moveCooldowns.get(move) == 0);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private void performEnemyMove() {
         statusLabel.setText(enemyPokemon.getName() + "'s turn...");
         Move move = enemyPokemon.getMoves().get((int) (Math.random() * enemyPokemon.getMoves().size()));
 
-        // Mirip dengan player, tentukan target animasi
-        JLabel targetLabelForAnimation = playerLabel; // Default untuk serangan
+        JLabel targetLabelForAnimation = playerLabel;
         Pokemon defender = playerPokemon;
         Pokemon attacker = enemyPokemon;
 
         if (move.getType() == Type.HEAL || move.getType() == Type.BUFF) {
-            targetLabelForAnimation = enemyLabel; // Animasi di dekat pengguna move
+            targetLabelForAnimation = enemyLabel;
         }
 
         int animX = targetLabelForAnimation.getX();
         int animY = targetLabelForAnimation.getY();
+
         Timer actionDelayTimer = new Timer(1000, actionEvent -> {
             statusLabel.setText(attacker.getName() + " used " + move.getName() + "!");
             if (move.getSfxPath() != null && !move.getSfxPath().isEmpty()) {
-                SFXPlayer.playSound(move.getSfxPath()); // <-- PANGGIL SFX DI SINI
+                SFXPlayer.playSound(move.getSfxPath());
             }
             showMoveAnimation(move.getGifPath(), animX, animY, () -> {
                 boolean turnEnds = true;
@@ -1394,8 +1739,7 @@ class BattleUI {
                         attacker.increaseAttackBonus(move.getPower());
                         statusLabel.setText(attacker.getName() + " powered up!");
                     }
-                } else // Damaging move
-                {
+                } else {
                     int damage = Battle.calculateDamage(attacker, move, defender);
                     defender.takeDamage(damage);
                     statusLabel.setText(
@@ -1404,14 +1748,12 @@ class BattleUI {
 
                     if (defender.isFainted()) {
                         statusLabel.setText(defender.getName() + " fainted! " + attacker.getName() + " wins!");
-                        setMoveButtonsEnabled(false);
+                        disableAllMoveButtons();
                         backToMenuButton.setVisible(true);
                         restartGameButton.setVisible(true);
                         if (defender == playerPokemon) {
-                            // Player kalah
                             showDefeatPanel(parentUI.coins);
                         } else {
-                            // Player menang
                             if (parentUI != null)
                                 parentUI.addCoins(1000);
                             showVictoryPanel(parentUI.coins - 1000, 1000);
@@ -1421,7 +1763,8 @@ class BattleUI {
                 }
 
                 if (turnEnds && !defender.isFainted()) {
-                    setMoveButtonsEnabled(true); // Aktifkan tombol player untuk giliran berikutnya
+                    // Enable available move buttons for player's next turn
+                    enableAvailableMoveButtons();
                     statusLabel.setText("Your turn!");
                 }
             });
@@ -1461,12 +1804,13 @@ class BattleUI {
         timer.start();
     }
 
-    private void setMoveButtonsEnabled(boolean enabled) {
-        for (Component comp : movesPanel.getComponents()) {
-            if (comp instanceof JButton) {
-                comp.setEnabled(enabled);
+    private Move findMoveByName(String name) {
+        for (Move move : playerPokemon.getMoves()) {
+            if (move.getName().equals(name)) {
+                return move;
             }
         }
+        return null;
     }
 
     private JLabel getScaledImageLabel(String imagePath, int panelWidth, int panelHeight) {

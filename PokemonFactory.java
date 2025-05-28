@@ -70,7 +70,7 @@ public class PokemonFactory {
                                 "./Assets/Sound/SFX/heal.wav"));
 
                 Pokemon wartortle = new Pokemon("Wartortle", Type.WATER, 140, 63, 85, // HP: 110->140, Def: 80->85
-                                "./Assets/Pokemon/Squirtle/wartortle.png",
+                                "./Assets/Pokemon/Squirtle/wartotle.png",
                                 "./Assets/Pokemon/Squirtle/wartortle_back.gif",
                                 "./Assets/Pokemon/Squirtle/wartortle_front.gif");
                 wartortle.addMove(new Move("Aqua Tail", Type.WATER, 70,

@@ -21,16 +21,16 @@ public class Pokemon {
             String imagePath, String backImagePath, String frontImagePath) {
         this.name = name;
         this.type = type;
-        this.maxHp = hp;
-        this.currentHp = hp;
+        this.maxHp = hp * 5;
+        this.currentHp = this.maxHp;
         this.attack = attack;
         this.defense = defense;
         this.imagePath = imagePath;
         this.backImagePath = backImagePath;
         this.frontImagePath = frontImagePath;
         this.moves = new ArrayList<>();
-        this.attackBonus = 0; // Bonus attack awal = 0
-        this.defenseBonus = 0; // Bonus defense awal = 0
+        this.attackBonus = 0;
+        this.defenseBonus = 0;
     }
 
     public void evolve() {

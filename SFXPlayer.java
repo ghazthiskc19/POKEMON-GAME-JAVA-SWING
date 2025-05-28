@@ -3,6 +3,12 @@ import java.io.IOException;
 import javax.sound.sampled.*;
 
 public class SFXPlayer {
+    private static int volume = 70; // Default volume
+
+    public static void setVolume(int newVolume) {
+        volume = Math.max(0, Math.min(100, newVolume)); // Clamp between 0 and 100
+    }
+
     public static void playSound(String soundFilePath) {
         if (soundFilePath == null || soundFilePath.isEmpty()) {
             System.err.println("Peringatan SFXPlayer: Path file suara kosong atau null.");
@@ -17,7 +23,24 @@ public class SFXPlayer {
                 }
 
                 AudioInputStream audioStream = AudioSystem.getAudioInputStream(audioFile);
+                AudioFormat format = audioStream.getFormat();
+
+                // Create a new audio format with adjusted sample rate based on volume
+                float sampleRate = format.getSampleRate() * (volume / 100.0f);
+                AudioFormat newFormat = new AudioFormat(
+                        format.getEncoding(),
+                        sampleRate,
+                        format.getSampleSizeInBits(),
+                        format.getChannels(),
+                        format.getFrameSize(),
+                        sampleRate,
+                        format.isBigEndian());
+
+                // Convert the audio stream to the new format
+                AudioInputStream volumeAdjustedStream = AudioSystem.getAudioInputStream(newFormat, audioStream);
+
                 Clip clip = AudioSystem.getClip();
+                clip.open(volumeAdjustedStream);
 
                 clip.addLineListener(event -> {
                     if (event.getType() == LineEvent.Type.STOP) {
@@ -25,7 +48,7 @@ public class SFXPlayer {
                         c.close();
                     }
                 });
-                clip.open(audioStream);
+
                 clip.start();
 
             } catch (UnsupportedAudioFileException e) {
