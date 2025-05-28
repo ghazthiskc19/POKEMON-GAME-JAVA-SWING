@@ -232,13 +232,13 @@ class StartMenuUI extends JFrame {
             @Override
             public void mouseEntered(MouseEvent e) {
                 JButton btn = (JButton) e.getSource();
-                btn.setForeground(Color.white);
+                btn.setForeground(textColor);
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
                 JButton btn = (JButton) e.getSource();
-                btn.setForeground(textColor);
+                btn.setForeground(Color.white);
             }
         };
         for (JButton btn : buttons) {
@@ -424,7 +424,7 @@ class StartMenuUI extends JFrame {
         JButton enterArena = new JButton("Let's Fight");
         JButton enterShop = new JButton("Shop");
         JButton exitToStartMenu = new JButton("Exit");
-        JButton logoutButton = new JButton("Logout");
+        JButton logoutButton = new JButton("Change Name");
 
         JLabel[] Allteks = { playerName1, playerName2, currentMoney, currentCountPokemon };
         JButton[] buttons = { enterArena, enterShop, exitToStartMenu, logoutButton };
@@ -1379,49 +1379,6 @@ class BattleUI {
     private void initializeUI() {
         arenaPanel.removeAll();
         arenaPanel.setLayout(null);
-        backToMenuButton = new JButton("Kembali ke Menu Utama");
-        backToMenuButton.setFont(headerFont.deriveFont(16f));
-        backToMenuButton.setBounds(50, 50, 250, 40);
-        backToMenuButton.setVisible(false);
-        backToMenuButton.addActionListener(e -> {
-            if (cardLayoutInstance != null && wrapperPanelInstance != null) {
-                fadeEffectPanel.setFadeColor(Color.black);
-                fadeEffectPanel.setCurrentAlpha(0.0f);
-                fadeEffectPanel.setVisible(true);
-                Runnable H_afterFadeOut = () -> {
-                    cardLayoutInstance.show(wrapperPanelInstance, "MainMenu");
-                    musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
-                    Runnable H_afterFadeIn = () -> {
-                    };
-                    fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
-                };
-                fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
-            }
-        });
-        restartGameButton = new JButton("Main Lagi (Pilih Ulang)");
-        if (headerFont != null)
-            restartGameButton.setFont(headerFont.deriveFont(16f));
-        restartGameButton.setBounds(backToMenuButton.getX(),
-                backToMenuButton.getY() + backToMenuButton.getHeight() + 10, 250, 40);
-        restartGameButton.setVisible(false);
-        restartGameButton.addActionListener(e -> {
-            if (cardLayoutInstance != null && wrapperPanelInstance != null) {
-                fadeEffectPanel.setFadeColor(Color.black);
-                fadeEffectPanel.setCurrentAlpha(0.0f);
-                fadeEffectPanel.setVisible(true);
-                Runnable H_afterFadeOut = () -> {
-                    cardLayoutInstance.show(wrapperPanelInstance, "PokemonSelection");
-                    musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
-                    Runnable H_afterFadeIn = () -> {
-                    };
-                    fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
-                };
-                fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
-            }
-        });
-        arenaPanel.add(restartGameButton);
-        arenaPanel.add(backToMenuButton);
-
         // Player Pokemon GIF
         ImageIcon playerIcon = new ImageIcon(playerPokemon.getBackGifPath());
         playerLabel = new JLabel(playerIcon);
@@ -1588,6 +1545,14 @@ class BattleUI {
     }
 
     private void performPlayerMove(Move move) {
+        // Disable all move buttons during player's turn
+        disableAllMoveButtons();
+
+        // Play move sound effect
+        SFXPlayer.playSound(move.getSfxPath());
+
+        statusLabel.setText(playerPokemon.getName() + " used " + move.getName() + "!");
+
         // Check if move is on cooldown
         if (moveCooldowns.get(move) > 0) {
             statusLabel.setText(move.getName() + " is on cooldown for " + moveCooldowns.get(move) + " more turns!");
@@ -1596,7 +1561,6 @@ class BattleUI {
 
         // Immediately disable ALL move buttons when a move is selected
         disableAllMoveButtons();
-        statusLabel.setText(playerPokemon.getName() + " used " + move.getName() + "!");
 
         // Set cooldown based on move position in the moves list
         List<Move> moves = playerPokemon.getMoves();
@@ -1614,7 +1578,11 @@ class BattleUI {
         updateMoveButtons();
 
         if (move.getSfxPath() != null && !move.getSfxPath().isEmpty()) {
-            SFXPlayer.playSound(move.getSfxPath());
+            try {
+                SFXPlayer.playSound(move.getSfxPath());
+            } catch (Exception e) {
+                System.out.println("Error playing sound: " + e.getMessage());
+            }
         }
 
         JLabel targetLabelForAnimation = enemyLabel;
@@ -1631,8 +1599,8 @@ class BattleUI {
         showMoveAnimation(move.getGifPath(), animX, animY, () -> {
             boolean turnEnds = true;
             if (move.getType() == Type.HEAL) {
-                attacker.heal(move.getPower());
-                statusLabel.setText(attacker.getName() + " healed itself for " + move.getPower() + " HP!");
+                attacker.heal(move.getPower() * 2); // Multiply heal power by 2
+                statusLabel.setText(attacker.getName() + " healed itself for " + (move.getPower() * 2) + " HP!");
                 updateHealthDisplay();
             } else if (move.getType() == Type.BUFF) {
                 if (move.getName().equalsIgnoreCase("Buff")) {
@@ -1654,14 +1622,12 @@ class BattleUI {
                 if (defender.isFainted()) {
                     statusLabel.setText(defender.getName() + " fainted! " + attacker.getName() + " wins!");
                     disableAllMoveButtons();
-                    backToMenuButton.setVisible(true);
-                    restartGameButton.setVisible(true);
                     if (defender == playerPokemon) {
                         showDefeatPanel(parentUI.coins);
                     } else {
                         if (parentUI != null)
                             parentUI.addCoins(100);
-                        showVictoryPanel(parentUI.coins - 1000, 100);
+                        showVictoryPanel(parentUI.coins - 1000, 1000);
                     }
                     turnEnds = false;
                 }
@@ -1676,6 +1642,9 @@ class BattleUI {
                 }
                 turnCount++;
                 updateMoveButtons();
+
+                // Enable all move buttons after player's turn
+                enableAvailableMoveButtons();
 
                 // Enemy's turn
                 Timer enemyTurnTimer = new Timer(1500, ae -> performEnemyMove());
@@ -1717,31 +1686,34 @@ class BattleUI {
     }
 
     private void performEnemyMove() {
+        // Disable all move buttons during enemy's turn
+        disableAllMoveButtons();
+
         statusLabel.setText(enemyPokemon.getName() + "'s turn...");
-        Move move = enemyPokemon.getMoves().get((int) (Math.random() * enemyPokemon.getMoves().size()));
+        Timer actionDelayTimer = new Timer(1000, ae -> {
+            Move move = enemyPokemon.getMoves().get((int) (Math.random() * enemyPokemon.getMoves().size()));
+            statusLabel.setText(enemyPokemon.getName() + " used " + move.getName() + "!");
 
-        JLabel targetLabelForAnimation = playerLabel;
-        Pokemon defender = playerPokemon;
-        Pokemon attacker = enemyPokemon;
+            // Play move sound effect
+            SFXPlayer.playSound(move.getSfxPath());
 
-        if (move.getType() == Type.HEAL || move.getType() == Type.BUFF) {
-            targetLabelForAnimation = enemyLabel;
-        }
+            JLabel targetLabelForAnimation = playerLabel;
+            Pokemon defender = playerPokemon;
+            Pokemon attacker = enemyPokemon;
 
-        int animX = targetLabelForAnimation.getX();
-        int animY = targetLabelForAnimation.getY();
-
-        Timer actionDelayTimer = new Timer(1000, actionEvent -> {
-            statusLabel.setText(attacker.getName() + " used " + move.getName() + "!");
-            if (move.getSfxPath() != null && !move.getSfxPath().isEmpty()) {
-                SFXPlayer.playSound(move.getSfxPath());
+            if (move.getType() == Type.HEAL || move.getType() == Type.BUFF) {
+                targetLabelForAnimation = enemyLabel;
             }
+
+            int animX = targetLabelForAnimation.getX();
+            int animY = targetLabelForAnimation.getY();
+
             showMoveAnimation(move.getGifPath(), animX, animY, () -> {
                 boolean turnEnds = true;
 
                 if (move.getType() == Type.HEAL) {
-                    attacker.heal(move.getPower());
-                    statusLabel.setText(attacker.getName() + " healed itself for " + move.getPower() + " HP!");
+                    attacker.heal(move.getPower() * 2); // Multiply heal power by 2
+                    statusLabel.setText(attacker.getName() + " healed itself for " + (move.getPower() * 2) + " HP!");
                     updateHealthDisplay();
                 } else if (move.getType() == Type.BUFF) {
                     if (move.getName().equalsIgnoreCase("Buff")) {
@@ -1764,13 +1736,11 @@ class BattleUI {
                     if (defender.isFainted()) {
                         statusLabel.setText(defender.getName() + " fainted! " + attacker.getName() + " wins!");
                         disableAllMoveButtons();
-                        backToMenuButton.setVisible(true);
-                        restartGameButton.setVisible(true);
                         if (defender == playerPokemon) {
                             showDefeatPanel(parentUI.coins);
                         } else {
                             if (parentUI != null)
-                                parentUI.addCoins(1000);
+                                parentUI.addCoins(100);
                             showVictoryPanel(parentUI.coins - 1000, 1000);
                         }
                         turnEnds = false;
@@ -1845,7 +1815,7 @@ class BattleUI {
         JPanel victoryPanel = new JPanel();
         victoryPanel.setLayout(new BoxLayout(victoryPanel, BoxLayout.Y_AXIS));
         victoryPanel.setBackground(new Color(0, 0, 0, 200));
-        victoryPanel.setBounds(arenaPanel.getWidth() / 2 - 150, arenaPanel.getHeight() / 2 - 100, 500, 300);
+        victoryPanel.setBounds(arenaPanel.getWidth() / 2 - 300, arenaPanel.getHeight() / 2 - 200, 600, 400);
 
         JLabel victoryLabel = new JLabel("VICTORY!");
         victoryLabel.setFont(headerFont.deriveFont(32f));
@@ -1862,11 +1832,56 @@ class BattleUI {
         plusLabel.setForeground(Color.GREEN);
         plusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
+        // Create buttons
+        JButton backToMenuButton = new JButton("Kembali ke Menu Utama");
+        backToMenuButton.setFont(headerFont.deriveFont(16f));
+        backToMenuButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        backToMenuButton.setPreferredSize(new Dimension(250, 40));
+        backToMenuButton.addActionListener(e -> {
+            if (cardLayoutInstance != null && wrapperPanelInstance != null) {
+                fadeEffectPanel.setFadeColor(Color.black);
+                fadeEffectPanel.setCurrentAlpha(0.0f);
+                fadeEffectPanel.setVisible(true);
+                Runnable H_afterFadeOut = () -> {
+                    cardLayoutInstance.show(wrapperPanelInstance, "MainMenu");
+                    musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
+                    Runnable H_afterFadeIn = () -> {
+                    };
+                    fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
+                };
+                fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
+            }
+        });
+
+        JButton restartGameButton = new JButton("Main Lagi (Pilih Ulang)");
+        restartGameButton.setFont(headerFont.deriveFont(16f));
+        restartGameButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        restartGameButton.setPreferredSize(new Dimension(250, 40));
+        restartGameButton.addActionListener(e -> {
+            if (cardLayoutInstance != null && wrapperPanelInstance != null) {
+                fadeEffectPanel.setFadeColor(Color.black);
+                fadeEffectPanel.setCurrentAlpha(0.0f);
+                fadeEffectPanel.setVisible(true);
+                Runnable H_afterFadeOut = () -> {
+                    cardLayoutInstance.show(wrapperPanelInstance, "PokemonSelection");
+                    musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
+                    Runnable H_afterFadeIn = () -> {
+                    };
+                    fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
+                };
+                fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
+            }
+        });
+
         victoryPanel.add(Box.createVerticalGlue());
         victoryPanel.add(victoryLabel);
         victoryPanel.add(Box.createRigidArea(new Dimension(0, 10)));
         victoryPanel.add(coinsLabel);
         victoryPanel.add(plusLabel);
+        victoryPanel.add(Box.createRigidArea(new Dimension(0, 30)));
+        victoryPanel.add(backToMenuButton);
+        victoryPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+        victoryPanel.add(restartGameButton);
         victoryPanel.add(Box.createVerticalGlue());
 
         victoryPanel.setOpaque(true);
@@ -1881,7 +1896,7 @@ class BattleUI {
         JPanel defeatPanel = new JPanel();
         defeatPanel.setLayout(new BoxLayout(defeatPanel, BoxLayout.Y_AXIS));
         defeatPanel.setBackground(new Color(0, 0, 0, 200));
-        defeatPanel.setBounds(arenaPanel.getWidth() / 2 - 150, arenaPanel.getHeight() / 2 - 100, 300, 200);
+        defeatPanel.setBounds(arenaPanel.getWidth() / 2 - 300, arenaPanel.getHeight() / 2 - 200, 600, 400);
 
         JLabel defeatLabel = new JLabel("DEFEAT!");
         defeatLabel.setFont(headerFont.deriveFont(32f));
@@ -1898,11 +1913,56 @@ class BattleUI {
         plusLabel.setForeground(Color.GRAY);
         plusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
+        // Create buttons
+        JButton backToMenuButton = new JButton("Kembali ke Menu Utama");
+        backToMenuButton.setFont(headerFont.deriveFont(16f));
+        backToMenuButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        backToMenuButton.setPreferredSize(new Dimension(250, 40));
+        backToMenuButton.addActionListener(e -> {
+            if (cardLayoutInstance != null && wrapperPanelInstance != null) {
+                fadeEffectPanel.setFadeColor(Color.black);
+                fadeEffectPanel.setCurrentAlpha(0.0f);
+                fadeEffectPanel.setVisible(true);
+                Runnable H_afterFadeOut = () -> {
+                    cardLayoutInstance.show(wrapperPanelInstance, "MainMenu");
+                    musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
+                    Runnable H_afterFadeIn = () -> {
+                    };
+                    fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
+                };
+                fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
+            }
+        });
+
+        JButton restartGameButton = new JButton("Main Lagi (Pilih Ulang)");
+        restartGameButton.setFont(headerFont.deriveFont(16f));
+        restartGameButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        restartGameButton.setPreferredSize(new Dimension(250, 40));
+        restartGameButton.addActionListener(e -> {
+            if (cardLayoutInstance != null && wrapperPanelInstance != null) {
+                fadeEffectPanel.setFadeColor(Color.black);
+                fadeEffectPanel.setCurrentAlpha(0.0f);
+                fadeEffectPanel.setVisible(true);
+                Runnable H_afterFadeOut = () -> {
+                    cardLayoutInstance.show(wrapperPanelInstance, "PokemonSelection");
+                    musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
+                    Runnable H_afterFadeIn = () -> {
+                    };
+                    fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
+                };
+                fadeEffectPanel.startFade(1.0f, 700, H_afterFadeOut);
+            }
+        });
+
         defeatPanel.add(Box.createVerticalGlue());
         defeatPanel.add(defeatLabel);
         defeatPanel.add(Box.createRigidArea(new Dimension(0, 10)));
         defeatPanel.add(coinsLabel);
         defeatPanel.add(plusLabel);
+        defeatPanel.add(Box.createRigidArea(new Dimension(0, 30)));
+        defeatPanel.add(backToMenuButton);
+        defeatPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+        defeatPanel.add(restartGameButton);
         defeatPanel.add(Box.createVerticalGlue());
 
         defeatPanel.setOpaque(true);
