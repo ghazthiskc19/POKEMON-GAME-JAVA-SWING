@@ -172,6 +172,16 @@ class StartMenuUI extends JFrame {
                 "./Assets/Sound/BGM/start_menu_music.wav",
                 "./Assets/Sound/BGM/main_menu_music.wav",
                 "./Assets/Sound/BGM/arena_music.wav");
+
+        // Initialize volumes from PlayerData
+        int musicVolume = PlayerData.getMusicVolume();
+        int sfxVolume = PlayerData.getSFXVolume();
+
+        // Set initial volumes
+        if (musicPlayer != null && musicPlayer.isVolumeControlSupported()) {
+            musicPlayer.setVolumePercent(musicVolume);
+        }
+        SFXPlayer.setVolume(sfxVolume);
     }
 
     private void setJPanel() {
@@ -1588,11 +1598,16 @@ class BattleUI {
         disableAllMoveButtons();
         statusLabel.setText(playerPokemon.getName() + " used " + move.getName() + "!");
 
-        // Set cooldown based on move type
-        if (move.getType() == Type.HEAL || move.getType() == Type.BUFF) {
-            moveCooldowns.put(move, 3); // 3-turn cooldown for heal/buff
-        } else if (move.getPower() > 50) {
-            moveCooldowns.put(move, 2); // 2-turn cooldown for high-damage moves
+        // Set cooldown based on move position in the moves list
+        List<Move> moves = playerPokemon.getMoves();
+        int moveIndex = moves.indexOf(move);
+
+        if (moveIndex == 0) { // First attack move
+            moveCooldowns.put(move, 4); // 4-turn cooldown
+        } else if (moveIndex == 1) { // Second attack move
+            moveCooldowns.put(move, 2); // 2-turn cooldown
+        } else { // Buff and Heal moves (index 2 and 3)
+            moveCooldowns.put(move, 4); // 4-turn cooldown
         }
 
         // Update move buttons to show cooldowns

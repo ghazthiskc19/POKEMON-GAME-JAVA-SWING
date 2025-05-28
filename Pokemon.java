@@ -100,7 +100,6 @@ public class Pokemon {
                 + getAttack()); // Debug
     }
 
-    // Method untuk menambahkan bonus defense
     public void increaseDefenseBonus(int amount) {
         this.defenseBonus += amount;
         if (this.defenseBonus < 0)
