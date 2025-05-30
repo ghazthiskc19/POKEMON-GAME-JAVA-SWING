@@ -1009,7 +1009,17 @@ class StartMenuUI extends JFrame {
         }
 
         for (Pokemon pokemon : availableForPurchase) {
-            JPanel pokemonCard = new JPanel();
+            JPanel pokemonCard = new JPanel() {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    // Panel agak dihitamkan transparan
+                    Graphics2D g2d = (Graphics2D) g.create();
+                    g2d.setColor(new Color(0, 0, 0, 120)); // Semitransparan hitam
+                    g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
+                    g2d.dispose();
+                }
+            };
             pokemonCard.setOpaque(false);
             pokemonCard.setLayout(new BoxLayout(pokemonCard, BoxLayout.Y_AXIS));
             pokemonCard.setBackground(new Color(255, 255, 255, 200));
@@ -1027,6 +1037,7 @@ class StartMenuUI extends JFrame {
             JLabel nameLabel = new JLabel(pokemon.getName());
             nameLabel.setFont(headerFont.deriveFont(20f));
             nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            nameLabel.setForeground(textColor2);
             pokemonCard.add(Box.createVerticalStrut(10));
             pokemonCard.add(nameLabel);
 
@@ -1034,6 +1045,7 @@ class StartMenuUI extends JFrame {
             JLabel typeLabel = new JLabel("Type: " + pokemon.getType());
             typeLabel.setFont(headerFont.deriveFont(16f));
             typeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            typeLabel.setForeground(textColor2);
             pokemonCard.add(typeLabel);
 
             // Pokemon Stats
@@ -1041,6 +1053,7 @@ class StartMenuUI extends JFrame {
                     pokemon.getMaxHp(), pokemon.getAttack(), pokemon.getDefense()));
             statsLabel.setFont(headerFont.deriveFont(14f));
             statsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            statsLabel.setForeground(textColor2);
             pokemonCard.add(statsLabel);
 
             // Evolution Requirements
@@ -1082,6 +1095,7 @@ class StartMenuUI extends JFrame {
                     reqLabel.setFont(headerFont.deriveFont(14f));
                     reqLabel.setForeground(new Color(100, 100, 100));
                     reqLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                    reqLabel.setForeground(textColor2);
                     pokemonCard.add(reqLabel);
                 }
             }
@@ -1627,7 +1641,7 @@ class BattleUI {
                     } else {
                         if (parentUI != null)
                             parentUI.addCoins(100);
-                        showVictoryPanel(parentUI.coins - 1000, 1000);
+                        showVictoryPanel(parentUI.coins - 1000, 100);
                     }
                     turnEnds = false;
                 }
