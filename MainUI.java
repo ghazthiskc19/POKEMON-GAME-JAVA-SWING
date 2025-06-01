@@ -779,14 +779,14 @@ class StartMenuUI extends JFrame {
 
     private void setPokemonButton(JPanel pokemonButton, JPanel pokemonImage) {
         pokemonButtons.clear();
+        // availablePokemon.clear(); // availablePokemon is for Arena, not selection
+        // panel display
         String clickSfxPath = "./Assets/Sound/SFX/Button - Sound effect.wav";
 
-        // Load owned Pokemon from PlayerData
-        List<String> ownedPokemonNames = PlayerData.getOwnedPokemon();
-
-        // If we have saved Pokemon, show those as buttons
-        for (Pokemon pokemon : allPokemons) {
-            if (ownedPokemonNames.contains(pokemon.getName())) {
+        // If we have saved Pokemon, show those as buttons (using the ownedPokemons
+        // list)
+        if (!ownedPokemons.isEmpty()) {
+            for (Pokemon pokemon : ownedPokemons) {
                 JButton btn = new JButton();
                 ImageIcon icon = new ImageIcon(pokemon.getFrontGifPath());
                 btn.setIcon(icon);
@@ -804,66 +804,76 @@ class StartMenuUI extends JFrame {
                     playerPokemon = pokemon;
                     if (fightButton != null)
                         fightButton.setEnabled(true);
+                    // isPokemonLocked logic is handled elsewhere
                 });
-                availablePokemon.add(pokemon);
+                // availablePokemon.add(pokemon); // availablePokemon is for Arena
             }
-        }
-
-        // If no Pokemon are owned, show all basic Pokemon
-        if (ownedPokemonNames.isEmpty()) {
+        } else {
+            // If no Pokemon are owned, show all basic Pokemon as initial choices
             int i = 1;
-            for (Pokemon pokemon : allPokemons) {
-                if (i % 3 == 1) {
-                    JButton btn = new JButton();
-                    ImageIcon icon = new ImageIcon(pokemon.getFrontGifPath());
-                    btn.setIcon(icon);
-                    btn.setFocusable(false);
-                    btn.setContentAreaFilled(false);
-                    btn.setBorderPainted(false);
-                    btn.setOpaque(false);
-                    btn.setPreferredSize(new Dimension(175, 175));
-                    pokemonButton.add(btn);
-                    pokemonButtons.add(btn);
+            String[][] evolutionChains = {
+                    { "Pichu", "Pikachu", "Raichu" },
+                    { "Squirtle", "Wartortle", "Blastoise" },
+                    { "Charmander", "Charmeleon", "Charizard" },
+                    { "Ralts", "Kirlia", "Gardevoir" }
+            };
 
-                    btn.addActionListener(e -> {
-                        SFXPlayer.playSound(clickSfxPath);
-                        setPokemonImage(pokemonImage, pokemon);
-                        if (isPokemonLocked && playerPokemon != pokemon) {
-                            if (fightButton != null)
-                                fightButton.setEnabled(false);
-                            return;
-                        }
-                        if (playerPokemon == null) {
-                            ownedPokemonCount++;
-                            updateOwnedPokemonLabel();
-                            List<String> newOwnedPokemon = new ArrayList<>();
-                            newOwnedPokemon.add(pokemon.getName());
-                            PlayerData.saveOwnedPokemon(newOwnedPokemon);
-                            PlayerData.saveCurrentPokemon(pokemon.getName());
-                            ownedPokemons.add(pokemon);
+            for (String[] chain : evolutionChains) {
+                String basicPokemonName = chain[0];
+                for (Pokemon pokemon : allPokemons) {
+                    if (pokemon.getName().equals(basicPokemonName)) {
+                        JButton btn = new JButton();
+                        ImageIcon icon = new ImageIcon(pokemon.getFrontGifPath());
+                        btn.setIcon(icon);
+                        btn.setFocusable(false);
+                        btn.setContentAreaFilled(false);
+                        btn.setBorderPainted(false);
+                        btn.setOpaque(false);
+                        btn.setPreferredSize(new Dimension(175, 175));
+                        pokemonButton.add(btn);
+                        pokemonButtons.add(btn);
 
-                            // Enable shop button after selecting first Pokemon
-                            for (Component comp : mainMenuPanel.getComponents()) {
-                                if (comp instanceof JPanel) {
-                                    JPanel left = (JPanel) comp;
-                                    for (Component button : left.getComponents()) {
-                                        if (button instanceof JButton && ((JButton) button).getText().equals("Shop")) {
-                                            ((JButton) button).setEnabled(true);
-                                            break;
+                        btn.addActionListener(e -> {
+                            SFXPlayer.playSound(clickSfxPath);
+                            setPokemonImage(pokemonImage, pokemon);
+                            // Selection logic for the *first* pokemon
+                            if (playerPokemon == null) { // Only add/save if selecting the first pokemon
+                                ownedPokemonCount++;
+                                updateOwnedPokemonLabel();
+                                List<String> newOwnedPokemon = new ArrayList<>();
+                                newOwnedPokemon.add(pokemon.getName());
+                                PlayerData.saveOwnedPokemon(newOwnedPokemon);
+                                PlayerData.saveCurrentPokemon(pokemon.getName());
+                                ownedPokemons.add(pokemon); // Add to the in-memory list
+
+                                // Enable shop button after selecting first Pokemon
+                                for (Component comp : mainMenuPanel.getComponents()) {
+                                    if (comp instanceof JPanel) {
+                                        JPanel left = (JPanel) comp;
+                                        for (Component button : left.getComponents()) {
+                                            if (button instanceof JButton
+                                                    && ((JButton) button).getText().equals("Shop")) {
+                                                ((JButton) button).setEnabled(true);
+                                                break;
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                        playerPokemon = pokemon;
-                        if (fightButton != null)
-                            fightButton.setEnabled(true);
-                        if (lockedInfoLabel != null)
-                            lockedInfoLabel.setVisible(isPokemonLocked);
-                    });
-                    availablePokemon.add(pokemon);
+                            playerPokemon = pokemon; // Set the currently selected pokemon
+                            if (fightButton != null)
+                                fightButton.setEnabled(true);
+                            if (lockedInfoLabel != null)
+                                lockedInfoLabel.setVisible(isPokemonLocked);
+
+                            // After selecting the first pokemon, the next time the selection panel is
+                            // opened,
+                            // it will use the logic for existing owned pokemon.
+                        });
+                        // availablePokemon.add(pokemon); // availablePokemon is for Arena
+                        break; // Move to the next basic pokemon chain
+                    }
                 }
-                i++;
             }
         }
     }
@@ -1163,56 +1173,46 @@ class StartMenuUI extends JFrame {
             }
         }
 
-        // If no Pokemon are owned, show all basic Pokemon
+        // Determine which Pokemon should be displayed in the shop
+        List<String> pokemonToShowInShop = new ArrayList<>();
+
         if (currentOwnedNames.isEmpty()) {
+            // If no Pokemon owned, show all basic forms
             for (String[] chain : evolutionChains) {
-                String basicPokemon = chain[0];
-                for (Pokemon p : allPokemons) {
-                    if (p.getName().equals(basicPokemon)) {
-                        availableForPurchase.add(p);
-                        break;
-                    }
-                }
+                pokemonToShowInShop.add(chain[0]);
             }
         } else {
-            // Check each evolution chain
+            // For each chain, find the next evolution *not* owned by the player
             for (String[] chain : evolutionChains) {
-                // Skip if this chain is complete (final evolution owned)
+                // Skip if the final evolution of this chain is already owned
                 if (completeChains.contains(chain[chain.length - 1])) {
                     continue;
                 }
 
-                boolean foundNextEvolution = false;
-
-                // Check if we have any Pokemon in this chain
-                for (int i = 0; i < chain.length; i++) {
-                    String pokemonName = chain[i];
-
-                    // If we have this Pokemon and there's a next evolution
-                    if (currentOwnedNames.contains(pokemonName) && i < chain.length - 1) {
-                        String nextEvolution = chain[i + 1];
-
-                        // If we don't have the next evolution, add it to available Pokemon
-                        if (!currentOwnedNames.contains(nextEvolution)) {
-                            for (Pokemon p : allPokemons) {
-                                if (p.getName().equals(nextEvolution)) {
-                                    availableForPurchase.add(p);
-                                    foundNextEvolution = true;
-                                    break;
-                                }
-                            }
-                        }
+                String nextEvoToShow = null;
+                // Iterate through the chain to find the first unowned evolution after an owned
+                // form
+                for (int i = 0; i < chain.length - 1; i++) {
+                    if (currentOwnedNames.contains(chain[i]) && !currentOwnedNames.contains(chain[i + 1])) {
+                        nextEvoToShow = chain[i + 1];
+                        break; // Found the next evolution to show
                     }
                 }
+                // If no evolution is found and the basic form is not owned, show the basic form
+                if (nextEvoToShow == null && !currentOwnedNames.contains(chain[0])) {
+                    pokemonToShowInShop.add(chain[0]);
+                } else if (nextEvoToShow != null) {
+                    pokemonToShowInShop.add(nextEvoToShow);
+                }
+            }
+        }
 
-                // If we don't have any Pokemon in this chain, add the basic form
-                if (!foundNextEvolution) {
-                    for (Pokemon p : allPokemons) {
-                        if (p.getName().equals(chain[0])) {
-                            availableForPurchase.add(p);
-                            break;
-                        }
-                    }
+        // Populate availableForPurchase list based on names to show
+        for (String pokemonName : pokemonToShowInShop) {
+            for (Pokemon p : allPokemons) {
+                if (p.getName().equals(pokemonName)) {
+                    availableForPurchase.add(p);
+                    break;
                 }
             }
         }
@@ -1320,6 +1320,7 @@ class StartMenuUI extends JFrame {
                 // Buy Button
                 JButton buyButton = new JButton("Buy (" + cost + " coins)");
                 editButtonShop(buyButton);
+                buyButton.setAlignmentX(Component.CENTER_ALIGNMENT);
                 pokemonCard.add(Box.createVerticalStrut(10));
                 pokemonCard.add(buyButton);
                 pokemonCard.add(Box.createVerticalStrut(10));
@@ -1330,9 +1331,9 @@ class StartMenuUI extends JFrame {
                     if (coins >= cost) {
                         // Check if we have the required previous evolution
                         boolean canBuy = true;
+                        String prevEvoName = null;
                         if (isEvolution) {
-                            // Find the previous evolution
-                            String prevEvoName = null;
+                            // Find the previous evolution name
                             for (String[] chain : evolutionChains) {
                                 for (int i = 1; i < chain.length; i++) {
                                     if (chain[i].equals(pokemon.getName())) {
@@ -1353,14 +1354,18 @@ class StartMenuUI extends JFrame {
                             PlayerData.addCoins(-cost);
                             updateCoinLabel();
 
-                            // Add Pokemon to owned list
-                            List<String> ownedPokemon = new ArrayList<>(PlayerData.getOwnedPokemon());
-                            ownedPokemon.add(pokemon.getName());
-                            PlayerData.saveOwnedPokemon(ownedPokemon);
+                            // Add Pokemon to owned list in PlayerData
+                            List<String> ownedPokemonNamesList = new ArrayList<>(PlayerData.getOwnedPokemon());
+                            ownedPokemonNamesList.add(pokemon.getName());
 
-                            // Update owned Pokemon count
-                            ownedPokemonCount++;
-                            updateOwnedPokemonLabel();
+                            // Remove previous evolution from owned list if this is an evolution purchase
+                            if (isEvolution && prevEvoName != null) {
+                                ownedPokemonNamesList.remove(prevEvoName);
+                            }
+                            PlayerData.saveOwnedPokemon(ownedPokemonNamesList);
+
+                            // Update ownedPokemons list in UI (clear and reload based on PlayerData)
+                            loadSavedPokemonData(); // Call this here to update ownedPokemons immediately
 
                             // Show success message
                             JOptionPane.showMessageDialog(
@@ -1369,8 +1374,8 @@ class StartMenuUI extends JFrame {
                                     "Purchase Successful",
                                     JOptionPane.INFORMATION_MESSAGE);
 
-                            // Refresh shop panel to update available Pokemon
-                            setShopPanel();
+                            // Refresh shop panel to update available Pokemon and ownedPokemons list
+                            refreshShopPanel();
                         } else {
                             JOptionPane.showMessageDialog(
                                     this,
@@ -1419,6 +1424,143 @@ class StartMenuUI extends JFrame {
         pokemonShopPanel.add(Box.createVerticalStrut(20));
         pokemonShopPanel.revalidate();
         pokemonShopPanel.repaint();
+    }
+
+    private void loadSavedPokemonData() {
+        List<String> ownedPokemonNames = PlayerData.getOwnedPokemon();
+        ownedPokemons.clear(); // Clear current list
+
+        if (!ownedPokemonNames.isEmpty()) {
+            // Determine the highest evolution owned for each chain
+            List<String> highestEvolutions = new ArrayList<>();
+            String[][] evolutionChains = {
+                    { "Pichu", "Pikachu", "Raichu" },
+                    { "Squirtle", "Wartortle", "Blastoise" },
+                    { "Charmander", "Charmeleon", "Charizard" },
+                    { "Ralts", "Kirlia", "Gardevoir" }
+            };
+
+            for (String[] chain : evolutionChains) {
+                String ownedInChain = null;
+                // Iterate through the chain from final form backwards to find the highest owned
+                // evolution
+                for (int i = chain.length - 1; i >= 0; i--) {
+                    if (ownedPokemonNames.contains(chain[i])) {
+                        ownedInChain = chain[i];
+                        break; // Found the highest evolution in this chain
+                    }
+                }
+                if (ownedInChain != null) {
+                    highestEvolutions.add(ownedInChain);
+                }
+                // Note: We don't add basic forms here if no higher evolution is owned.
+                // The selection panel logic will handle showing initial choices if
+                // ownedPokemonNames is empty.
+            }
+
+            // Populate ownedPokemons list with the highest evolutions found
+            for (String pokemonName : highestEvolutions) {
+                for (Pokemon pokemon : allPokemons) {
+                    if (pokemon.getName().equals(pokemonName)) {
+                        ownedPokemons.add(pokemon);
+                        break;
+                    }
+                }
+            }
+
+            ownedPokemonCount = ownedPokemons.size(); // Update count based on unique highest evolutions
+            updateOwnedPokemonLabel();
+
+            // Set current Pokemon if it exists in the new ownedPokemons list
+            String currentPokemonName = PlayerData.getCurrentPokemon();
+            if (currentPokemonName != null && !currentPokemonName.isEmpty()) {
+                for (Pokemon pokemon : ownedPokemons) {
+                    if (pokemon.getName().equals(currentPokemonName)) {
+                        playerPokemon = pokemon;
+                        break;
+                    }
+                }
+            } else if (!ownedPokemons.isEmpty()) {
+                // If no current pokemon saved, default to the first one owned
+                playerPokemon = ownedPokemons.get(0);
+                PlayerData.saveCurrentPokemon(playerPokemon.getName());
+            }
+            // If ownedPokemons is empty, playerPokemon remains null, handled by select
+            // panel logic.
+
+        } else {
+            // No owned Pokemon data, reset ownedPokemons and count
+            ownedPokemons.clear();
+            ownedPokemonCount = 0;
+            updateOwnedPokemonLabel();
+            playerPokemon = null; // No owned pokemon, no current pokemon
+        }
+        // After loading, refresh the selection panel to show correct buttons.
+        // setPokemonButton in refreshPokemonSelectionPanel uses the ownedPokemons list.
+    }
+
+    private void refreshPokemonSelectionPanel() {
+
+        pokemonSelectionPanel.removeAll();
+        pokemonSelectionPanel.setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.weightx = 1;
+
+        // Add info label (logic is already correct)
+        // JLabel infoLabel = new JLabel();
+        // infoLabel.setFont(headerFont.deriveFont(20f));
+        // infoLabel.setForeground(Color.WHITE);
+        // infoLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        // infoLabel.setPreferredSize(new Dimension(300, 100));
+
+        // Check if this is first time (no owned Pokemon)
+        List<String> ownedPokemonNames = PlayerData.getOwnedPokemon();
+        // if (ownedPokemonNames.isEmpty()) {
+        // infoLabel.setText(
+        // "<html><center>Welcome to Pokemon Battle!<br>Choose your first Pokemon to
+        // begin your adventure.<br>This Pokemon will be your companion for future
+        // battles.</center></html>");
+        // } else {
+        // infoLabel.setText("<html><center>Select your Pokemon for
+        // battle!</center></html>");
+        // }
+
+        // gbc.gridy = 0;
+        // gbc.weighty = 0.1;
+        // gbc.insets = new Insets(10, 10, 10, 10);
+        // pokemonSelectionPanel.add(infoLabel, gbc);
+
+        JPanel pokemonImage = new JPanel();
+        JPanel pokemonButton = new JPanel();
+        JPanel playExitButton = new JPanel();
+        pokemonImage.setBackground(new Color(0, 0, 0, 127));
+        pokemonButton.setOpaque(false);
+        playExitButton.setOpaque(false);
+
+        // Panel 1: Gambar (50%)
+        gbc.gridy = 1;
+        gbc.weighty = 0.5;
+        gbc.insets = new Insets(0, 0, 0, 0);
+        pokemonSelectionPanel.add(pokemonImage, gbc);
+
+        // Panel 2: Tombol Pokemon (30%)
+        gbc.gridy = 2;
+        gbc.weighty = 0.3;
+        pokemonSelectionPanel.add(pokemonButton, gbc);
+
+        // Panel 3: Play & Exit (20%)
+        gbc.gridy = 3;
+        gbc.weighty = 0.2;
+        pokemonSelectionPanel.add(playExitButton, gbc);
+
+        // setPokemonButton reads from the ownedPokemons list.
+        setPokemonButton(pokemonButton, pokemonImage);
+        setPlayExitButton(playExitButton);
+
+        // Refresh the panel
+        pokemonSelectionPanel.revalidate();
+        pokemonSelectionPanel.repaint();
     }
 
     private void editButtonAll(JButton[] buttons) {
@@ -1567,86 +1709,6 @@ class StartMenuUI extends JFrame {
         coins += amount;
         PlayerData.addCoins(amount); // Save to PlayerData
         updateCoinLabel();
-    }
-
-    // Add this method to load saved Pokemon data when the game starts
-    private void loadSavedPokemonData() {
-        List<String> ownedPokemonNames = PlayerData.getOwnedPokemon();
-        if (!ownedPokemonNames.isEmpty()) {
-            ownedPokemonCount = ownedPokemonNames.size();
-            updateOwnedPokemonLabel();
-
-            // Find and set current Pokemon
-            String currentPokemonName = PlayerData.getCurrentPokemon();
-            if (!currentPokemonName.isEmpty()) {
-                for (Pokemon pokemon : allPokemons) {
-                    if (pokemon.getName().equals(currentPokemonName)) {
-                        playerPokemon = pokemon;
-                        ownedPokemons.add(pokemon);
-                        break;
-                    }
-                }
-            }
-
-            // Add all owned Pokemon to ownedPokemons list
-            for (String pokemonName : ownedPokemonNames) {
-                for (Pokemon pokemon : allPokemons) {
-                    if (pokemon.getName().equals(pokemonName) && !ownedPokemons.contains(pokemon)) {
-                        ownedPokemons.add(pokemon);
-                    }
-                }
-            }
-        }
-    }
-
-    private void refreshPokemonSelectionPanel() {
-        // Clear existing Pokemon buttons
-        pokemonButtons.clear();
-        availablePokemon.clear();
-
-        // Get current owned Pokemon from PlayerData
-        List<String> ownedPokemonNames = PlayerData.getOwnedPokemon();
-
-        // Update owned Pokemon count
-        ownedPokemonCount = ownedPokemonNames.size();
-        updateOwnedPokemonLabel();
-
-        // Clear and reset the Pokemon selection panel
-        pokemonSelectionPanel.removeAll();
-        pokemonSelectionPanel.setLayout(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.weightx = 1;
-
-        JPanel pokemonImage = new JPanel();
-        JPanel pokemonButton = new JPanel();
-        JPanel playExitButton = new JPanel();
-        pokemonImage.setBackground(new Color(0, 0, 0, 127));
-        pokemonButton.setOpaque(false);
-        playExitButton.setOpaque(false);
-
-        // Panel 1: Gambar (50%)
-        gbc.gridy = 0;
-        gbc.weighty = 0.5;
-        pokemonSelectionPanel.add(pokemonImage, gbc);
-
-        // Panel 2: Tombol Pokemon (30%)
-        gbc.gridy = 1;
-        gbc.weighty = 0.3;
-        pokemonSelectionPanel.add(pokemonButton, gbc);
-
-        // Panel 3: Play & Exit (20%)
-        gbc.gridy = 2;
-        gbc.weighty = 0.2;
-        pokemonSelectionPanel.add(playExitButton, gbc);
-
-        // Set up the Pokemon buttons with current owned Pokemon
-        setPokemonButton(pokemonButton, pokemonImage);
-        setPlayExitButton(playExitButton);
-
-        // Refresh the panel
-        pokemonSelectionPanel.revalidate();
-        pokemonSelectionPanel.repaint();
     }
 }
 
