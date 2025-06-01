@@ -10,6 +10,7 @@ public class PlayerData {
     private static final String CURRENT_POKEMON_KEY = "current_pokemon";
     private static final String MUSIC_VOLUME_KEY = "music_volume";
     private static final String SFX_VOLUME_KEY = "sfx_volume";
+    private static final String POKEMON_USAGE_KEY = "pokemon_usage";
     private static Preferences prefs = Preferences.userNodeForPackage(PlayerData.class);
 
     // Default coins jika belum pernah diset
@@ -96,6 +97,64 @@ public class PlayerData {
         return prefs.getInt(SFX_VOLUME_KEY, DEFAULT_VOLUME);
     }
 
+    // Pokemon Usage Tracking
+    public static void incrementPokemonUsage(String pokemonName) {
+        String usageData = prefs.get(POKEMON_USAGE_KEY, "");
+        String[] usagePairs = usageData.split(",");
+        boolean found = false;
+        StringBuilder newUsageData = new StringBuilder();
+
+        // Update existing usage count or add new entry
+        for (String pair : usagePairs) {
+            if (!pair.isEmpty()) {
+                String[] parts = pair.split(":");
+                if (parts[0].equals(pokemonName)) {
+                    int count = Integer.parseInt(parts[1]) + 1;
+                    if (newUsageData.length() > 0)
+                        newUsageData.append(",");
+                    newUsageData.append(pokemonName).append(":").append(count);
+                    found = true;
+                } else {
+                    if (newUsageData.length() > 0)
+                        newUsageData.append(",");
+                    newUsageData.append(pair);
+                }
+            }
+        }
+
+        // If Pokemon wasn't found, add new entry
+        if (!found) {
+            if (newUsageData.length() > 0)
+                newUsageData.append(",");
+            newUsageData.append(pokemonName).append(":1");
+        }
+
+        prefs.put(POKEMON_USAGE_KEY, newUsageData.toString());
+    }
+
+    public static String getMostUsedPokemon() {
+        String usageData = prefs.get(POKEMON_USAGE_KEY, "");
+        if (usageData.isEmpty())
+            return null;
+
+        String[] usagePairs = usageData.split(",");
+        String mostUsedPokemon = null;
+        int maxUsage = 0;
+
+        for (String pair : usagePairs) {
+            if (!pair.isEmpty()) {
+                String[] parts = pair.split(":");
+                int usage = Integer.parseInt(parts[1]);
+                if (usage > maxUsage) {
+                    maxUsage = usage;
+                    mostUsedPokemon = parts[0];
+                }
+            }
+        }
+
+        return mostUsedPokemon;
+    }
+
     public static void clearAllData() {
         // Clear all preferences
         try {
@@ -108,6 +167,7 @@ public class PlayerData {
             prefs.remove(CURRENT_POKEMON_KEY);
             prefs.remove(MUSIC_VOLUME_KEY);
             prefs.remove(SFX_VOLUME_KEY);
+            prefs.remove(POKEMON_USAGE_KEY);
         }
 
         // Reset to default values
