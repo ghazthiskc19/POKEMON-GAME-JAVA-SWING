@@ -90,10 +90,10 @@ class StartMenuUI extends JFrame {
     Pokemon enemyPokemon;
     FadeEffectPanel fadeEffectPanel;
     CardLayout cardLayout = new CardLayout();
+
     JPanel wrapperPanel;
     JPanel startMenuPanel;
     JPanel settingMenuPanel;
-
     JPanel mainMenuPanel;
     JPanel arenaPanel;
     JPanel pokemonSelectionPanel;
@@ -310,6 +310,16 @@ class StartMenuUI extends JFrame {
 
                 // Refresh shop panel to show basic Pokemon
                 setShopPanel();
+
+                // Refresh the right panel to show no favorite Pokemon
+                for (Component comp : mainMenuPanel.getComponents()) {
+                    if (comp instanceof JPanel) {
+                        JPanel rightPanel = (JPanel) comp;
+                        if (rightPanel.getComponentCount() > 0 && rightPanel.getComponent(0) instanceof JPanel) {
+                            reloadFavoritePokemon(rightPanel);
+                        }
+                    }
+                }
 
                 // Show confirmation message
                 JOptionPane.showMessageDialog(
@@ -595,43 +605,84 @@ class StartMenuUI extends JFrame {
         right.removeAll();
         right.setLayout(new OverlayLayout(right));
 
-        JPanel pokemonWrapper = new JPanel(new FlowLayout());
+        JPanel pokemonWrapper = new JPanel();
+        pokemonWrapper.setLayout(new BoxLayout(pokemonWrapper, BoxLayout.Y_AXIS));
         pokemonWrapper.setOpaque(false);
         int panelWidth = 300;
         int panelHeight = 300;
 
         // Get most used Pokemon
         String mostUsedPokemon = PlayerData.getMostUsedPokemon();
-        String pokemonPath = "./Assets/Pokemon/Pikachu/raichu.png"; // Default path
-        String frontGifPath = "./Assets/Pokemon/Pikachu/raichu_front.gif"; // Default path
-        String backGifPath = "./Assets/Pokemon/Pikachu/raichu_back.gif"; // Default path
+        String savedName = PlayerData.getPlayerName();
 
-        // If we have a most used Pokemon, get its paths
-        if (mostUsedPokemon != null && !mostUsedPokemon.isEmpty()) {
+        if (mostUsedPokemon == null || mostUsedPokemon.isEmpty()) {
+            // If no favorite Pokemon yet, show message
+            JLabel noFavoriteLabel = new JLabel("<html><center>" + (savedName != null ? savedName : "Trainer") +
+                    " belum memiliki<br>pokemon favorit</center></html>");
+            noFavoriteLabel.setFont(headerFont.deriveFont(24f));
+            noFavoriteLabel.setForeground(Color.WHITE);
+            noFavoriteLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            noFavoriteLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            pokemonWrapper.add(Box.createVerticalGlue());
+            pokemonWrapper.add(noFavoriteLabel);
+            pokemonWrapper.add(Box.createVerticalGlue());
+        } else {
+            // If we have a favorite Pokemon, show its details
+            Pokemon favoritePokemon = null;
             for (Pokemon pokemon : allPokemons) {
                 if (pokemon.getName().equals(mostUsedPokemon)) {
-                    pokemonPath = pokemon.getImagePath();
-                    frontGifPath = pokemon.getFrontGifPath();
-                    backGifPath = pokemon.getBackGifPath();
+                    favoritePokemon = pokemon;
                     break;
                 }
             }
+
+            if (favoritePokemon != null) {
+                // Pokemon Image
+                JLabel imageBig = getScaledImageLabel(favoritePokemon.getImagePath(), panelWidth, panelHeight);
+                imageBig.setAlignmentX(Component.CENTER_ALIGNMENT);
+                pokemonWrapper.add(Box.createVerticalStrut(20));
+                pokemonWrapper.add(imageBig);
+
+                // Pokemon Name and Type
+                JLabel nameLabel = new JLabel(favoritePokemon.getName());
+                nameLabel.setFont(headerFont.deriveFont(24f));
+                nameLabel.setForeground(Color.WHITE);
+                nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                pokemonWrapper.add(Box.createVerticalStrut(10));
+                pokemonWrapper.add(nameLabel);
+
+                JLabel typeLabel = new JLabel("Type: " + favoritePokemon.getType());
+                typeLabel.setFont(headerFont.deriveFont(18f));
+                typeLabel.setForeground(Color.WHITE);
+                typeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                pokemonWrapper.add(typeLabel);
+
+                // Pokemon Stats
+                JLabel statsLabel = new JLabel(String.format("HP: %d | ATK: %d | DEF: %d",
+                        favoritePokemon.getMaxHp(), favoritePokemon.getAttack(), favoritePokemon.getDefense()));
+                statsLabel.setFont(headerFont.deriveFont(16f));
+                statsLabel.setForeground(Color.WHITE);
+                statsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                pokemonWrapper.add(Box.createVerticalStrut(10));
+                pokemonWrapper.add(statsLabel);
+
+                // Moves
+                JLabel movesLabel = new JLabel("Moves:");
+                movesLabel.setFont(headerFont.deriveFont(16f));
+                movesLabel.setForeground(Color.WHITE);
+                movesLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                pokemonWrapper.add(Box.createVerticalStrut(5));
+                pokemonWrapper.add(movesLabel);
+
+                for (Move move : favoritePokemon.getMoves()) {
+                    JLabel moveLabel = new JLabel("- " + move.getName());
+                    moveLabel.setFont(headerFont.deriveFont(14f));
+                    moveLabel.setForeground(Color.WHITE);
+                    moveLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                    pokemonWrapper.add(moveLabel);
+                }
+            }
         }
-
-        JLabel imageBig = getScaledImageLabel(pokemonPath, panelWidth, panelHeight);
-        imageBig.setText("Pokemon favorit adalah " + (mostUsedPokemon != null ? mostUsedPokemon : "Raichu"));
-        imageBig.setFont(headerFont.deriveFont(18f));
-        imageBig.setVerticalTextPosition(JLabel.BOTTOM);
-        imageBig.setHorizontalTextPosition(JLabel.CENTER);
-        imageBig.setForeground(Color.white);
-
-        ImageIcon frontIcon = new ImageIcon(frontGifPath);
-        ImageIcon backIcon = new ImageIcon(backGifPath);
-        JLabel image1 = new JLabel(frontIcon);
-        JLabel image2 = new JLabel(backIcon);
-        pokemonWrapper.add(image1);
-        pokemonWrapper.add(image2);
-        pokemonWrapper.add(imageBig);
 
         JPanel overlay = new JPanel();
         overlay.setBackground(new Color(0, 0, 0, 127));
@@ -1431,35 +1482,8 @@ class StartMenuUI extends JFrame {
         ownedPokemons.clear(); // Clear current list
 
         if (!ownedPokemonNames.isEmpty()) {
-            // Determine the highest evolution owned for each chain
-            List<String> highestEvolutions = new ArrayList<>();
-            String[][] evolutionChains = {
-                    { "Pichu", "Pikachu", "Raichu" },
-                    { "Squirtle", "Wartortle", "Blastoise" },
-                    { "Charmander", "Charmeleon", "Charizard" },
-                    { "Ralts", "Kirlia", "Gardevoir" }
-            };
-
-            for (String[] chain : evolutionChains) {
-                String ownedInChain = null;
-                // Iterate through the chain from final form backwards to find the highest owned
-                // evolution
-                for (int i = chain.length - 1; i >= 0; i--) {
-                    if (ownedPokemonNames.contains(chain[i])) {
-                        ownedInChain = chain[i];
-                        break; // Found the highest evolution in this chain
-                    }
-                }
-                if (ownedInChain != null) {
-                    highestEvolutions.add(ownedInChain);
-                }
-                // Note: We don't add basic forms here if no higher evolution is owned.
-                // The selection panel logic will handle showing initial choices if
-                // ownedPokemonNames is empty.
-            }
-
-            // Populate ownedPokemons list with the highest evolutions found
-            for (String pokemonName : highestEvolutions) {
+            // Simply load the exact Pokemon that are owned
+            for (String pokemonName : ownedPokemonNames) {
                 for (Pokemon pokemon : allPokemons) {
                     if (pokemon.getName().equals(pokemonName)) {
                         ownedPokemons.add(pokemon);
@@ -1468,7 +1492,7 @@ class StartMenuUI extends JFrame {
                 }
             }
 
-            ownedPokemonCount = ownedPokemons.size(); // Update count based on unique highest evolutions
+            ownedPokemonCount = ownedPokemons.size();
             updateOwnedPokemonLabel();
 
             // Set current Pokemon if it exists in the new ownedPokemons list
@@ -1485,18 +1509,13 @@ class StartMenuUI extends JFrame {
                 playerPokemon = ownedPokemons.get(0);
                 PlayerData.saveCurrentPokemon(playerPokemon.getName());
             }
-            // If ownedPokemons is empty, playerPokemon remains null, handled by select
-            // panel logic.
-
         } else {
             // No owned Pokemon data, reset ownedPokemons and count
             ownedPokemons.clear();
             ownedPokemonCount = 0;
             updateOwnedPokemonLabel();
-            playerPokemon = null; // No owned pokemon, no current pokemon
+            playerPokemon = null;
         }
-        // After loading, refresh the selection panel to show correct buttons.
-        // setPokemonButton in refreshPokemonSelectionPanel uses the ownedPokemons list.
     }
 
     private void refreshPokemonSelectionPanel() {
