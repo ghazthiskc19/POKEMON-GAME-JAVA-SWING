@@ -21,7 +21,7 @@ public class Pokemon {
             String imagePath, String backImagePath, String frontImagePath) {
         this.name = name;
         this.type = type;
-        this.maxHp = hp;
+        this.maxHp = hp * 3;
         this.currentHp = this.maxHp;
         this.attack = attack;
         this.defense = defense;
