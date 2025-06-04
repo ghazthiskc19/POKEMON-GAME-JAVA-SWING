@@ -378,8 +378,10 @@ class StartMenuUI extends JFrame {
                 }
             }
         }
+    }
 
-        // Add a listener to refresh favorite Pokemon when returning to main menu
+    public void refreshMainMenuPanel() {
+        // Refresh the right panel (favorite Pokemon)
         for (Component comp : mainMenuPanel.getComponents()) {
             if (comp instanceof JPanel) {
                 JPanel rightPanel = (JPanel) comp;
@@ -969,6 +971,7 @@ class StartMenuUI extends JFrame {
             Runnable H_afterFadeOut = () -> {
                 cardLayout.show(wrapperPanel, "MainMenu");
                 musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
+                refreshMainMenuPanel(); // Refresh favorite Pokemon when returning to main menu
                 Runnable H_afterFadeIn = () -> {
                 };
                 fadeEffectPanel.startFade(0.0f, 700, H_afterFadeIn);
@@ -981,30 +984,53 @@ class StartMenuUI extends JFrame {
         // Get available Pokemon from shop
         List<Pokemon> availableEnemies = new ArrayList<>();
         List<String> currentOwnedNames = PlayerData.getOwnedPokemon();
-        Random rand = new Random(); // Add Random variable
+        Random rand = new Random();
 
-        // Basic Pokemon that can be enemies
-        Pokemon[] basicPokemon = {
-                allPokemons.get(0), // Pichu
-                allPokemons.get(3), // Squirtle
-                allPokemons.get(6), // Charmander
-                allPokemons.get(9) // Ralts
+        // Define evolution chains
+        String[][] evolutionChains = {
+                { "Pichu", "Pikachu", "Raichu" },
+                { "Squirtle", "Wartortle", "Blastoise" },
+                { "Charmander", "Charmeleon", "Charizard" },
+                { "Ralts", "Kirlia", "Gardevoir" }
         };
 
-        // Add basic Pokemon and their evolutions to available enemies
-        for (Pokemon basic : basicPokemon) {
-            availableEnemies.add(basic);
-            Pokemon nextEvo = PokemonFactory.getNextEvolution(basic);
-            if (nextEvo != null) {
-                availableEnemies.add(nextEvo);
+        // Determine player's Pokemon evolution stage
+        int playerEvolutionStage = 0;
+        String playerPokemonName = playerPokemon.getName();
+
+        // Find which chain the player's Pokemon belongs to and its stage
+        for (String[] chain : evolutionChains) {
+            for (int i = 0; i < chain.length; i++) {
+                if (chain[i].equals(playerPokemonName)) {
+                    playerEvolutionStage = i;
+                    break;
+                }
             }
         }
 
-        // Filter out player's Pokemon and its evolution
-        availableEnemies.removeIf(p -> p.getName().equals(playerPokemon.getName()));
-        Pokemon playerEvo = PokemonFactory.getNextEvolution(playerPokemon);
-        if (playerEvo != null) {
-            availableEnemies.removeIf(p -> p.getName().equals(playerEvo.getName()));
+        // Add Pokemon of the same evolution stage to available enemies
+        for (String[] chain : evolutionChains) {
+            // Skip if this is the player's Pokemon's chain
+            boolean isPlayerChain = false;
+            for (String pokemon : chain) {
+                if (pokemon.equals(playerPokemonName)) {
+                    isPlayerChain = true;
+                    break;
+                }
+            }
+            if (isPlayerChain)
+                continue;
+
+            // Add Pokemon from the same evolution stage
+            if (playerEvolutionStage < chain.length) {
+                String enemyName = chain[playerEvolutionStage];
+                for (Pokemon pokemon : allPokemons) {
+                    if (pokemon.getName().equals(enemyName)) {
+                        availableEnemies.add(pokemon);
+                        break;
+                    }
+                }
+            }
         }
 
         // Randomly select enemy from available Pokemon
@@ -1462,6 +1488,7 @@ class StartMenuUI extends JFrame {
                 if (PlayerData.hasPlayerName()) {
                     cardLayout.show(wrapperPanel, "MainMenu");
                     musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
+                    refreshMainMenuPanel(); // Refresh favorite Pokemon when returning to main menu
                 } else {
                     cardLayout.show(wrapperPanel, "NameInput");
                 }
@@ -2300,6 +2327,7 @@ class BattleUI {
         backToMenuButton.addActionListener(e -> {
             cardLayoutInstance.show(wrapperPanelInstance, "MainMenu");
             musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
+            parentUI.refreshMainMenuPanel(); // Use parentUI to access the method
         });
 
         restartGameButton.addActionListener(e -> {
@@ -2359,6 +2387,7 @@ class BattleUI {
         backToMenuButton.addActionListener(e -> {
             cardLayoutInstance.show(wrapperPanelInstance, "MainMenu");
             musicPlayer.playMusic(MusicPlayer.MusicType.MAIN_MENU);
+            parentUI.refreshMainMenuPanel(); // Use parentUI to access the method
         });
 
         restartGameButton.addActionListener(e -> {
